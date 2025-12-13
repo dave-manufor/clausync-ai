@@ -23,8 +23,17 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-[rgba(191,192,255,0.1)] py-16 px-6">
-      <div className="max-w-6xl mx-auto">
+    <footer className="relative border-t border-[rgba(191,192,255,0.1)] py-16 px-6 bg-[#050315] overflow-hidden">
+      {/* Watermark */}
+      <div 
+        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+        aria-hidden="true"
+      >
+        <span className="text-[12rem] md:text-[16rem] font-bold text-white/[0.01] tracking-tight lowercase whitespace-nowrap">
+          clausync
+        </span>
+      </div>
+      <div className="relative max-w-6xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand Column */}
           <div className="md:col-span-1">

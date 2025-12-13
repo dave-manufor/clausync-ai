@@ -60,7 +60,7 @@ body {
 .grid-background {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -2;
   pointer-events: none;
   background-image: 
     linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
@@ -100,7 +100,7 @@ body {
 .particles-container {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: -1;
   pointer-events: none;
   overflow: hidden;
 }
@@ -212,18 +212,25 @@ body {
 }
 
 /* =============================================
-   Card Styles (Clean, no glassmorphism)
+   Card Styles (Glassmorphism)
    ============================================= */
 .card {
-  background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
-  border: 1px solid var(--surface-border);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(161, 124, 255, 0.12);
   border-radius: 16px;
   transition: all 0.3s ease;
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .card:hover {
-  border-color: rgba(161, 124, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(161, 124, 255, 0.25);
   transform: translateY(-2px);
+  box-shadow: 0 8px 40px rgba(88, 20, 186, 0.15);
 }
 
 .card-dashboard {
