@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+/* =============================================
+   ClauSync.ai Design System
+   Deep Intelligence Theme | Unique Premium Feel
+   ============================================= */
+
+:root {
+  /* Core Colors */
+  --surface-void: #08041E;
+  --primary-brand: #5814BA;
+  --accent-glow: #A17CFF;
+  --accent-soft: #BFC0FF;
+  --text-main: #FFFFFF;
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --text-subtle: rgba(255, 255, 255, 0.4);
+  
+  /* Semantic */
+  --semantic-risk: #FF4757;
+  --semantic-safe: #2ED573;
+  --semantic-warning: #FFBE0B;
+  
+  /* Surfaces */
+  --surface-elevated: rgba(255, 255, 255, 0.03);
+  --surface-border: rgba(191, 192, 255, 0.1);
+  
+  /* Grid */
+  --grid-color: rgba(161, 124, 255, 0.07);
+  --grid-size: 60px;
+}
+
+@theme inline {
+  --color-void: var(--surface-void);
+  --color-brand: var(--primary-brand);
+  --color-glow: var(--accent-glow);
+  --color-mist: var(--accent-soft);
+  --color-risk: var(--semantic-risk);
+  --color-safe: var(--semantic-safe);
+  --color-warning: var(--semantic-warning);
+  
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--surface-void);
+  color: var(--text-main);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* =============================================
+   Animated Grid Background
+   ============================================= */
+.grid-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 30%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 30%, transparent 70%);
+}
+
+/* Animated grid pulse */
+.grid-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(88, 20, 186, 0.08) 0%,
+    transparent 40%
+  );
+  animation: gridPulse 8s ease-in-out infinite;
+}
+
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* =============================================
+   Aurora / Glow Effects
+   ============================================= */
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.4;
+  animation: aurroraDrift 20s ease-in-out infinite;
+}
+
+.aurora-primary {
+  background: var(--primary-brand);
+  width: 600px;
+  height: 600px;
+}
+
+.aurora-accent {
+  background: var(--accent-glow);
+  width: 400px;
+  height: 400px;
+  animation-delay: -10s;
+}
+
+@keyframes aurroraDrift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(50px, -30px) scale(1.1);
+  }
+  50% {
+    transform: translate(-30px, 40px) scale(0.95);
+  }
+  75% {
+    transform: translate(40px, 20px) scale(1.05);
+  }
+}
+
+/* =============================================
+   Floating Particles Animation
+   ============================================= */
+.particles {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--accent-glow);
+  border-radius: 50%;
+  opacity: 0;
+  animation: particleFloat 15s linear infinite;
+}
+
+@keyframes particleFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(100vh) scale(0);
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100vh) scale(1);
+  }
+}
+
+/* =============================================
+   Typography
+   ============================================= */
+.gradient-text {
+  background: linear-gradient(135deg, var(--text-main) 0%, var(--accent-glow) 50%, var(--accent-soft) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-hero {
+  background: linear-gradient(180deg, var(--text-main) 0%, var(--accent-glow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================
+   Card Styles (Clean, no glassmorphism)
+   ============================================= */
+.card {
+  background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: rgba(161, 124, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.card-dashboard {
+  background: linear-gradient(180deg, rgba(8, 4, 30, 0.9) 0%, rgba(8, 4, 30, 0.95) 100%);
+  border: 1px solid rgba(161, 124, 255, 0.15);
+  border-radius: 12px;
+}
+
+/* =============================================
+   Buttons
+   ============================================= */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-brand) 0%, #7C3AED 100%);
+  color: white;
+  font-weight: 600;
+  padding: 14px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(88, 20, 186, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(88, 20, 186, 0.4);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-main);
+  font-weight: 500;
+  padding: 14px 28px;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent-soft);
+  background: rgba(191, 192, 255, 0.05);
+}
+
+/* =============================================
+   Status Badges
+   ============================================= */
+.badge-risk {
+  background: rgba(255, 71, 87, 0.15);
+  color: var(--semantic-risk);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-warning {
+  background: rgba(255, 190, 11, 0.15);
+  color: var(--semantic-warning);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-safe {
+  background: rgba(46, 213, 115, 0.15);
+  color: var(--semantic-safe);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =============================================
+   Noise Texture Overlay
+   ============================================= */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* =============================================
+   Custom Scrollbar
+   ============================================= */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-glow);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-soft);
+}
+
+/* =============================================
+   Selection
+   ============================================= */
+::selection {
+  background: var(--primary-brand);
+  color: white;
+}

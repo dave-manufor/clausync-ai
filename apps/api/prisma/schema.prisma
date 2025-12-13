@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id               String            @id @default(uuid()) @db.Uuid
+  name             String
+  stripeCustomerId String?           @map("stripe_customer_id")
+  homeRegion       String            @default("us-central1") @map("home_region")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  
+  users            User[]
+  invitations      Invitation[]
+  webhooks         WebhookEndpoint[]
+
+  @@map("organizations")
+}
+
+model User {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  organizationId      String?                @map("organization_id") @db.Uuid
+  identityProviderUid String                 @unique @map("identity_provider_uid")
+  email               String
+  name                String?                // Display name
+  role                String                 @default("member") // viewer, member, admin, owner
+  deletedAt           DateTime?              @map("deleted_at") @db.Timestamptz // Soft delete for GDPR
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization        Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptions       Subscription[]
+  notifications       Notification[]
+  contextEmbeddings   UserContextEmbedding[]
+  apiKeys             ApiKey[]
+  dataExports         DataExport[]
+  deletionRequest     DeletionRequest?
+
+  @@map("users")
+}
+
+model MonitoredResource {
+  id            String             @id @default(uuid()) @db.Uuid
+  urlNormalized String             @map("url_normalized")
+  selector      String             @default("body")
+  currentHash   String?            @map("current_hash")
+  lastScrapedAt DateTime?          @map("last_scraped_at") @db.Timestamptz
+  deletedAt     DateTime?          @map("deleted_at") @db.Timestamptz // Soft delete
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscriptions Subscription[]
+  snapshots     ResourceSnapshot[]
+  changeEvents  ChangeEvent[]
+
+  @@unique([urlNormalized, selector])
+  @@map("monitored_resources")
+}
+
+model Subscription {
+  id                      String            @id @default(uuid()) @db.Uuid
+  userId                  String            @map("user_id") @db.Uuid
+  resourceId              String            @map("resource_id") @db.Uuid
+  displayName             String?           @map("display_name")
+  personalizationEnabled  Boolean           @default(false) @map("personalization_enabled")
+  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz // Soft delete
+  deletedBy               String?           @map("deleted_by") @db.Uuid  // Who deleted
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource                MonitoredResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId])
+  @@map("subscriptions")
+}
+
+model ResourceSnapshot {
+  id          String            @id @default(uuid()) @db.Uuid
+  resourceId  String            @map("resource_id") @db.Uuid
+  gcsUri      String            @map("gcs_uri")
+  contentHash String            @map("content_hash")
+  deletedAt   DateTime?         @map("deleted_at") @db.Timestamptz // Soft delete
+  scrapedAt   DateTime          @default(now()) @map("scraped_at") @db.Timestamptz
+
+  resource    MonitoredResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  oldEvents   ChangeEvent[]     @relation("OldSnapshot")
+  newEvents   ChangeEvent[]     @relation("NewSnapshot")
+
+  @@map("resource_snapshots")
+}
+
+model ChangeEvent {
+  id              String            @id @default(uuid()) @db.Uuid
+  resourceId      String            @map("resource_id") @db.Uuid
+  oldSnapshotId   String?           @map("old_snapshot_id") @db.Uuid
+  newSnapshotId   String?           @map("new_snapshot_id") @db.Uuid
+  diffJson        Json?             @map("diff_json")
+  globalAiSummary String?           @map("global_ai_summary")
+  globalRiskScore Int?              @map("global_risk_score")
+  riskKeywords    String[]          @map("risk_keywords")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  resource        MonitoredResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  oldSnapshot     ResourceSnapshot? @relation("OldSnapshot", fields: [oldSnapshotId], references: [id])
+  newSnapshot     ResourceSnapshot? @relation("NewSnapshot", fields: [newSnapshotId], references: [id])
+  notifications   Notification[]
+
+  @@map("change_events")
+}
+
+model UserContextEmbedding {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  sourceFilename String?  @map("source_filename")
+  contentChunk   String   @map("content_chunk")
+  // Note: pgvector type not natively supported by Prisma, use raw SQL for embedding queries
+  // embedding      Unsupported("vector(768)")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_context_embeddings")
+}
+
+model Notification {
+  id                  String       @id @default(uuid()) @db.Uuid
+  userId              String       @map("user_id") @db.Uuid
+  changeEventId       String?      @map("change_event_id") @db.Uuid
+  personalizedSummary String?      @map("personalized_summary")
+  riskLevel           String?      @map("risk_level")
+  isRead              Boolean      @default(false) @map("is_read")
+  sentAt              DateTime?    @map("sent_at") @db.Timestamptz
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  changeEvent         ChangeEvent? @relation(fields: [changeEventId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String?   @map("user_id") @db.Uuid
+  action        String
+  entityType    String    @map("entity_type")
+  entityId      String?   @map("entity_id") @db.Uuid
+  details       Json?
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  durationMs    Int?      @map("duration_ms")
+  resourceAfter Json?     @map("resource_after")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// API Key for programmatic access
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  name        String    // Friendly name for the key
+  keyPrefix   String    @map("key_prefix") @db.VarChar(12)  // First chars for identification (clau_live_)
+  keyHash     String    @unique @map("key_hash")            // SHA-256 hash of full key
+  scopes      String[]  @default([])                        // Granular permissions
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([keyHash])
+  @@map("api_keys")
+}
+
+// Organization invitations
+model Invitation {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  email          String
+  role           String    @default("member")
+  token          String    @unique
+  invitedBy      String    @map("invited_by") @db.Uuid
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([token])
+  @@map("invitations")
+}
+
+// GDPR Data Exports
+model DataExport {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  status    String    @default("pending") // pending, processing, ready, expired
+  fileUrl   String?   @map("file_url")
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("data_exports")
+}
+
+// Account deletion requests (GDPR)
+model DeletionRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @map("user_id") @db.Uuid
+  status          String    @default("pending") // pending, cancelled, completed
+  scheduledAt     DateTime  @map("scheduled_at") @db.Timestamptz // 30 days from now
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("deletion_requests")
+}
+
+// Webhook endpoints for external integrations
+model WebhookEndpoint {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    // Friendly name
+  url            String    // Target URL
+  secret         String    // HMAC signing secret
+  events         String[]  // Events to send: change.detected, risk.high, monitor.created
+  enabled        Boolean   @default(true)
+  lastDeliveryAt DateTime? @map("last_delivery_at") @db.Timestamptz
+  lastStatus     Int?      @map("last_status") // Last HTTP status
+  failureCount   Int       @default(0) @map("failure_count")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("webhook_endpoints")
+}

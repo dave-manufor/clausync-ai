@@ -1,0 +1,6 @@
+google-cloud-pubsub
+google-cloud-storage
+google-cloud-aiplatform
+pydantic-settings
+python-json-logger
+psycopg2-binary

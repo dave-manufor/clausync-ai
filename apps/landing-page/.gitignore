@@ -1,0 +1,76 @@
+# ==================================
+# Next.js Landing Page .gitignore
+# ==================================
+
+# --------------------------
+# OS Generated Files
+# --------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --------------------------
+# Environment & Secrets
+# --------------------------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+*.pem
+*.key
+
+# --------------------------
+# Dependencies
+# --------------------------
+node_modules/
+
+# --------------------------
+# Next.js Build Output
+# --------------------------
+.next/
+out/
+.vercel/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# --------------------------
+# Logs
+# --------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# --------------------------
+# Testing
+# --------------------------
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+playwright-report/
+test-results/
+
+# --------------------------
+# IDE
+# --------------------------
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# --------------------------
+# Misc
+# --------------------------
+.cache/
+.temp/
+*.bak
+
+# --------------------------
+# Bundle Analyzer
+# --------------------------
+.next/analyze/

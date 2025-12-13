@@ -1,0 +1,27 @@
+{
+  "name": "clausync-notification-worker",
+  "version": "1.0.0",
+  "description": "Notification Worker for ClauSync AI",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^4.0.0",
+    "@react-email/components": "^0.0.15",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "react": "^18.2.0",
+    "resend": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "@types/react": "^18.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.2"
+  }
+}

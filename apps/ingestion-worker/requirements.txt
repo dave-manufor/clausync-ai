@@ -1,0 +1,9 @@
+google-cloud-pubsub
+google-cloud-storage
+playwright
+beautifulsoup4
+redis
+pydantic-settings
+python-json-logger
+markdownify
+psycopg2-binary

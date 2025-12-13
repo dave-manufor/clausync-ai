@@ -1,0 +1,263 @@
+version: '3.8'
+
+services:
+  # --- Emulators & Dependencies ---
+  pubsub-emulator:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    command: gcloud beta emulators pubsub start --host-port=0.0.0.0:8085 --project=clausync-dev
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: clausync
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: clausync_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clausync -d clausync_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fake-gcs:
+    image: fsouza/fake-gcs-server
+    command: -scheme http -public-host localhost:4443
+    ports:
+      - "4443:4443"
+    volumes:
+      - gcs_data:/data
+
+  # --- Application Services ---
+  api:
+    build: ./apps/api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - REDIS_URL=redis://redis:6379
+      - PUBSUB_TOPIC_SCRAPE=cmd.scrape_url
+      - IDENTITY_PLATFORM_AUDIENCE=clausync-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/api/src
+          target: /app/src
+        - action: rebuild
+          path: ./apps/api/package.json
+
+  ingestion-worker:
+    build: ./apps/ingestion-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - PUBSUB_SUBSCRIPTION_ID=cmd.scrape_url-sub
+      - PUBSUB_TOPIC_ID=event.change_detected
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GCS_BUCKET_NAME=local-snapshots
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      fake-gcs:
+        condition: service_started
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/ingestion-worker
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - .venv/
+
+  analysis-worker:
+    build: ./apps/analysis-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - GCP_REGION=us-central1
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - PUBSUB_SUBSCRIPTION_ID=event.change_detected-sub
+      - PUBSUB_TOPIC_NOTIFY=cmd.send_notification
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - GCS_BUCKET_NAME=local-snapshots
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/analysis-worker
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - .venv/
+
+  vectorize-worker:
+    build: ./apps/vectorize-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - GCP_REGION=us-central1
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - PUBSUB_SUBSCRIPTION_ID=cmd.vectorize_doc-sub
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - GCS_BUCKET_NAME=local-uploads
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+      fake-gcs:
+        condition: service_started
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/vectorize-worker
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - .venv/
+
+  notification-worker:
+    build: ./apps/notification-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - PUBSUB_SUBSCRIPTION_ID=cmd.send_notification-sub
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+
+  cleanup-worker:
+    build: ./apps/cleanup-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - GCS_BUCKET_NAME=local-snapshots
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+      - RETENTION_DAYS=30
+      - RUN_INTERVAL_HOURS=24
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fake-gcs:
+        condition: service_started
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/cleanup-worker
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - .venv/
+
+  # --- Initialization Container ---
+  pubsub-init:
+    image: curlimages/curl:latest
+    depends_on:
+      pubsub-emulator:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for Pub/Sub emulator to be ready..."
+        until curl -s -o /dev/null -w "%{http_code}" "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics" | grep -q "200"; do
+          echo "Emulator not ready, retrying in 2 seconds..."
+          sleep 2
+        done
+        echo "Pub/Sub emulator is ready!"
+        
+        echo "Creating topics..."
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.scrape_url" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/event.change_detected" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.send_notification" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.vectorize_doc" 2>&1 || true
+        
+        echo "Creating DLQ topics..."
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.scrape_url.dlq" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/event.change_detected.dlq" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.vectorize_doc.dlq" 2>&1 || true
+        
+        echo "Creating subscriptions..."
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.scrape_url-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.scrape_url"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/event.change_detected-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/event.change_detected"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.send_notification-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.send_notification"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.vectorize_doc-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.vectorize_doc"}' 2>&1 || true
+        
+        echo "Creating DLQ subscriptions (for monitoring failed messages)..."
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.scrape_url.dlq-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.scrape_url.dlq"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/event.change_detected.dlq-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/event.change_detected.dlq"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.vectorize_doc.dlq-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.vectorize_doc.dlq"}' 2>&1 || true
+        
+        echo "Verifying topics..."
+        curl -s "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics"
+        echo ""
+        
+        echo "Creating GCS buckets..."
+        curl -s -X POST "http://fake-gcs:4443/storage/v1/b" -H "Content-Type: application/json" -d '{"name": "local-snapshots"}' || true
+        curl -s -X POST "http://fake-gcs:4443/storage/v1/b" -H "Content-Type: application/json" -d '{"name": "local-uploads"}' || true
+        echo "GCS buckets created."
+        
+        echo "Initialization complete."
+
+volumes:
+  pg_data:
+  gcs_data:

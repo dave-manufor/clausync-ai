@@ -1,0 +1,71 @@
+# ==================================
+# Node.js/Express API .gitignore
+# ==================================
+
+# --------------------------
+# OS Generated Files
+# --------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --------------------------
+# Environment & Secrets
+# --------------------------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+*.pem
+*.key
+secrets/
+credentials.json
+service-account*.json
+
+# --------------------------
+# Dependencies
+# --------------------------
+node_modules/
+
+# --------------------------
+# Build Output
+# --------------------------
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# --------------------------
+# Logs
+# --------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --------------------------
+# Testing
+# --------------------------
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# --------------------------
+# IDE
+# --------------------------
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# --------------------------
+# Misc
+# --------------------------
+.cache/
+.temp/
+*.bak
