@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Particles } from "@/components/particles";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,6 +42,9 @@ export default function RootLayout({
         {/* Animated Grid Background */}
         <div className="grid-background" aria-hidden="true" />
         
+        {/* Floating Particles */}
+        <Particles />
+        
         {/* Aurora Glow Effects */}
         <div className="aurora-blob aurora-primary" style={{ top: '-200px', left: '30%' }} aria-hidden="true" />
         <div className="aurora-blob aurora-accent" style={{ top: '40%', right: '-100px' }} aria-hidden="true" />
@@ -57,3 +61,4 @@ export default function RootLayout({
     </html>
   );
 }
+
