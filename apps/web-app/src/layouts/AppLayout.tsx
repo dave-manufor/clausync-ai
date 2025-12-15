@@ -3,6 +3,7 @@ import {
   Bell,
   Search,
   Menu,
+  PanelLeftOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
@@ -56,6 +57,18 @@ export function AppLayout() {
                 <Sidebar isMobile onNavigate={() => setMobileOpen(false)} />
               </SheetContent>
             </Sheet>
+
+            {/* Desktop Expand Sidebar Button - visible when collapsed */}
+            {collapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCollapsed(false)}
+                className="hidden md:flex -ml-2 text-muted-foreground hover:text-foreground"
+              >
+                <PanelLeftOpen className="h-5 w-5" />
+              </Button>
+            )}
 
             <div className="relative w-full max-w-md hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />

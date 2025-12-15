@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Plus,
-  Search,
   MoreHorizontal,
   ExternalLink,
   Pause,
@@ -14,10 +13,12 @@ import {
   ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
+  FileSearch,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { SearchInput } from '@/components/SearchInput'
+import { EmptyState } from '@/components/EmptyState'
 import {
   Table,
   TableBody,
@@ -189,18 +190,16 @@ export function MonitorsListPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search monitors..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value)
+                setCurrentPage(1)
+              }}
+              placeholder="Search monitors..."
+              className="flex-1"
+              debounceMs={300}
+            />
             <Button variant="outline" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
@@ -264,20 +263,17 @@ export function MonitorsListPage() {
                 ))
               ) : paginatedMonitors.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <div className="text-muted-foreground">
-                      {searchQuery ? 'No monitors match your search' : 'No monitors yet'}
-                    </div>
-                    {!searchQuery && (
-                      <Button asChild variant="outline" className="mt-4">
-                        <Link to="/monitors/new">
-                          <Link to="/monitors/new">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add your first monitor
-                          </Link>
-                        </Link>
-                      </Button>
-                    )}
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={FileSearch}
+                      title={searchQuery ? 'No monitors match your search' : 'No monitors yet'}
+                      description={searchQuery ? 'Try a different search term' : 'Start tracking changes in your service agreements'}
+                      action={!searchQuery ? {
+                        label: 'Add your first monitor',
+                        href: '/monitors/new',
+                        icon: Plus,
+                      } : undefined}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (

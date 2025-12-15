@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
-// ThemeToggle import removed - component kept for future use
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed?: boolean

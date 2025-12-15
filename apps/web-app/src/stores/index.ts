@@ -50,21 +50,18 @@ export const useAuthStore = create<AuthState>()(
 
 interface UIState {
   sidebarCollapsed: boolean
-  theme: 'light' | 'dark'
   toggleSidebar: () => void
-  setTheme: (theme: 'light' | 'dark') => void
 }
 
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      theme: 'dark',
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-      setTheme: (theme) => set({ theme }),
     }),
     {
       name: 'ui-storage',
     }
   )
 )
+

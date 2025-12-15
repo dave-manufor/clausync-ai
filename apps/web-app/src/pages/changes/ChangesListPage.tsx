@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  Search, 
   Filter, 
   Download, 
   Calendar, 
@@ -13,12 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SearchInput } from '@/components/SearchInput'
+import { EmptyState } from '@/components/EmptyState'
 import {
   Table,
   TableBody,
@@ -192,18 +193,16 @@ export function ChangesListPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search changes..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setCurrentPage(1)
-                }}
-              />
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value)
+                setCurrentPage(1)
+              }}
+              placeholder="Search changes..."
+              className="flex-1 min-w-[200px]"
+              debounceMs={300}
+            />
             
             {/* Severity Filter */}
             <Select
@@ -352,13 +351,16 @@ export function ChangesListPage() {
                 ))
               ) : paginatedChanges.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {hasActiveFilters ? 'No changes match your filters' : 'No changes detected yet'}
-                    {hasActiveFilters && (
-                      <Button variant="link" onClick={clearFilters} className="ml-2">
-                        Clear filters
-                      </Button>
-                    )}
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={Activity}
+                      title={hasActiveFilters ? 'No changes match your filters' : 'No changes detected yet'}
+                      description={hasActiveFilters ? 'Try adjusting your filters' : 'Changes will appear here when detected'}
+                      action={hasActiveFilters ? {
+                        label: 'Clear filters',
+                        onClick: clearFilters,
+                      } : undefined}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (

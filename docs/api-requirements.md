@@ -384,3 +384,217 @@ GET    /changelog                  # API changelog
 ### Versioning
 - URL prefix: `/api/v1/`, `/api/v2/`
 - Accept header: `Accept: application/vnd.clausync.v1+json`
+
+---
+
+## Implementation Status (As of Dec 2024)
+
+Analysis of actual implementation in `apps/api` vs requirements above.
+
+### Summary
+
+| Section | Required | Implemented | Status |
+|---------|----------|-------------|--------|
+| 1. Auth & Authorization | 9 features | 5 features | ⚠️ Partial |
+| 2. User & Org Management | 7 features | 7 features | ✅ Complete |
+| 3. Billing | 8 features | 0 features | ⏸️ Deferred |
+| 4. Notifications | 6 features | 2 features | ❌ Limited |
+| 5. Monitor Management | 8 features | 4 features | ⚠️ Partial |
+| 6. Document Management | 5 features | 0 features | ❌ Missing |
+| 7. Analytics & Reporting | 6 features | 3 features | ⚠️ Partial |
+| 8. Security & Compliance | 11 features | 7 features | ⚠️ Partial |
+| 9. Admin & Operations | 6 features | 2 features | ❌ Limited |
+| 10. Developer Experience | 6 features | 3 features | ⚠️ Partial |
+
+### What's Working Well
+- ✅ API key authentication with SHA256 hashing, scopes, soft revocation
+- ✅ RBAC with 5 role levels and permission wildcards
+- ✅ Full user/org CRUD with GDPR-compliant deletion (30-day grace)
+- ✅ Rate limiting using Redis sliding window algorithm
+- ✅ Comprehensive audit logging on all mutations
+- ✅ Webhook endpoint CRUD with test functionality
+- ✅ Analytics dashboard, change trends, top resources
+- ✅ OpenAPI/Swagger documentation at `/docs`
+
+### Known Gaps
+- ❌ No `/notifications` routes (model exists, no API)
+- ❌ No monitor pause/resume functionality
+- ❌ No snapshot browsing API
+- ❌ No document upload for RAG context
+- ❌ Data export worker not processing requests
+- ❌ Webhook delivery worker not implemented
+- ❌ No API versioning (`/api/v1/` prefix missing)
+
+---
+
+## Complete Implementation Roadmap
+
+All pending features organized into logical phases.
+
+---
+
+### Phase 1: Core User Experience (1-2 weeks)
+*Focus: Features users expect from day one*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Notifications list | Notifications | `GET /notifications` |
+| Mark notification read | Notifications | `PATCH /notifications/:id/read` |
+| Mark all read | Notifications | `POST /notifications/read-all` |
+| Notification preferences | Notifications | `GET/PATCH /preferences/notifications` |
+| Pause monitor | Monitors | `PATCH /monitors/:id/pause` |
+| Resume monitor | Monitors | `PATCH /monitors/:id/resume` |
+| List snapshots | Monitors | `GET /monitors/:id/snapshots` |
+| Get snapshot detail | Monitors | `GET /monitors/:id/snapshots/:sid` |
+| Get snapshot content | Monitors | `GET /monitors/:id/snapshots/:sid/content` |
+
+---
+
+### Phase 2: Data Access & GDPR Compliance (1-2 weeks)
+*Focus: User data rights and history access*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Diff viewer API | Monitors | `GET /monitors/:id/diff/:old/:new` |
+| Export change history | Monitors | `POST /monitors/:id/export` |
+| **Data export worker** | Users | Background job to process `DataExport` records |
+| **Deletion cleanup worker** | Users | Background job to process `DeletionRequest` after 30 days |
+| Cancel deletion | Users | `POST /users/me/cancel-deletion` (exists, verify working) |
+| Download data export | Users | `GET /users/me/export/:id/download` |
+
+---
+
+### Phase 3: Document Management (RAG) (2 weeks)
+*Focus: Personalized analysis context*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Upload document | Documents | `POST /documents` |
+| List documents | Documents | `GET /documents` |
+| Get document metadata | Documents | `GET /documents/:id` |
+| Delete document | Documents | `DELETE /documents/:id` |
+| Get document content | Documents | `GET /documents/:id/content` |
+| Document parsing | Documents | Integrate PDF/DOCX parser |
+| Vector embeddings | Documents | Store in `UserContextEmbedding` |
+| **Vectorize worker** | Workers | Process documents into embeddings |
+
+---
+
+### Phase 4: Analytics & Reporting (1-2 weeks)
+*Focus: Business intelligence features*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Risk score trends | Analytics | `GET /analytics/risk-trends` |
+| Change frequency charts | Analytics | Enhance `/analytics/changes` |
+| Most changed resources | Analytics | `/analytics/top-resources` (exists) |
+| Dashboard metrics | Analytics | Enhance `/analytics/dashboard` |
+| Generate report | Reporting | `POST /reports/generate` |
+| List reports | Reporting | `GET /reports` |
+| Download report | Reporting | `GET /reports/:id/download` |
+| Scheduled reports | Reporting | Cron-based report generation |
+
+---
+
+### Phase 5: Integrations & Webhooks (1-2 weeks)
+*Focus: Third-party connectivity*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| **Webhook delivery worker** | Integrations | Actually send events to webhook URLs |
+| Slack OAuth connect | Integrations | `POST /integrations/slack` |
+| Slack disconnect | Integrations | `DELETE /integrations/slack` |
+| Slack notification delivery | Integrations | Send alerts to Slack channels |
+| Digest frequency settings | Notifications | instant/daily/weekly options |
+| Unsubscribe handling | Notifications | Token-based email unsubscribe |
+
+---
+
+### Phase 6: API Infrastructure (1 week)
+*Focus: Developer experience and stability*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| API versioning | DevEx | Move routes to `/api/v1/` prefix |
+| Consistent response format | DevEx | Standardize `{ success, data, meta }` |
+| Changelog endpoint | DevEx | `GET /changelog` |
+| Postman collection | DevEx | Export from OpenAPI spec |
+| SDK generation | DevEx | JavaScript/Python SDK stubs |
+| Deprecation headers | DevEx | Add `Deprecation` header support |
+
+---
+
+### Phase 7: Enhanced Auth & Security (2 weeks)
+*Focus: Enterprise security requirements*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Session management | Auth | `GET /auth/sessions` |
+| Terminate session | Auth | `DELETE /auth/sessions/:id` |
+| MFA enforcement | Auth | Firebase Admin SDK check |
+| SSO provider verification | Auth | Verify Google/Microsoft/Okta in token |
+| IP allowlisting | Auth | Per-org IP whitelist check |
+| Service account tokens | Auth | Non-user API access |
+| Refresh token endpoint | Auth | `POST /auth/refresh` (or document Firebase handling) |
+
+---
+
+### Phase 8: Admin & Operations (1-2 weeks)
+*Focus: Platform management*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| System metrics | Admin | `GET /admin/metrics` |
+| List all users | Admin | `GET /admin/users` |
+| List all orgs | Admin | `GET /admin/organizations` |
+| Maintenance mode | Admin | `POST /admin/maintenance` |
+| Feature flags | Admin | `GET/PATCH /admin/feature-flags` |
+| User impersonation | Admin | Support token generation |
+| Security events | Security | `GET /security/events` |
+
+---
+
+### Phase 9: Bulk Operations (1 week)
+*Focus: Power user efficiency*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Bulk import monitors | Monitors | `POST /monitors/bulk` (CSV/JSON) |
+| Monitor categories/tags | Monitors | Add `tags` field to Subscription |
+| Monitor sharing | Monitors | Share within org |
+| Custom scrape frequency | Monitors | Per-monitor interval setting |
+
+---
+
+### Phase 10: Billing Integration (2-3 weeks)
+*Focus: Monetization (when payment provider selected)*
+
+| Feature | Section | Endpoint/Task |
+|---------|---------|---------------|
+| Stripe customer creation | Billing | On org creation |
+| Get subscription | Billing | `GET /billing/subscription` |
+| Create/update subscription | Billing | `POST /billing/subscription` |
+| Cancel subscription | Billing | `DELETE /billing/subscription` |
+| List invoices | Billing | `GET /billing/invoices` |
+| Download invoice PDF | Billing | `GET /billing/invoices/:id/pdf` |
+| Billing portal session | Billing | `POST /billing/portal` |
+| Usage metering | Billing | `GET /billing/usage` |
+| Stripe webhook handler | Billing | `POST /webhooks/stripe` |
+| Plan limits enforcement | Billing | Middleware to check quotas |
+| Trial period management | Billing | 14-day trial logic |
+| Proration handling | Billing | Upgrade/downgrade calculations |
+
+---
+
+## Priority Summary
+
+| Priority | Phases | Est. Time |
+|----------|--------|-----------|
+| **P0 - Critical** | 1, 2 | 3-4 weeks |
+| **P1 - Important** | 3, 4, 5 | 4-6 weeks |
+| **P2 - Standard** | 6, 7, 8 | 4-5 weeks |
+| **P3 - Enhancement** | 9 | 1 week |
+| **P4 - Deferred** | 10 | 2-3 weeks |
+
+**Total estimated effort: 14-19 weeks** (phases can be parallelized)
+

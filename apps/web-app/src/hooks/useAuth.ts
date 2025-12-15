@@ -11,6 +11,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   sendPasswordResetEmail as firebaseSendResetEmail,
+  confirmPasswordReset as firebaseConfirmReset,
   sendEmailVerification,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -38,6 +39,7 @@ export interface UseAuthReturn extends AuthState {
   // Account management
   signOut: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
+  confirmPasswordReset: (oobCode: string, newPassword: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   
   // State
@@ -166,7 +168,21 @@ export function useAuth(): UseAuthReturn {
   const sendPasswordResetEmail = useCallback(async (email: string): Promise<void> => {
     setError(null);
     try {
-      await firebaseSendResetEmail(auth, email);
+      await firebaseSendResetEmail(auth, email, {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  const confirmPasswordReset = useCallback(async (oobCode: string, newPassword: string): Promise<void> => {
+    setError(null);
+    try {
+      await firebaseConfirmReset(auth, oobCode, newPassword);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message);
@@ -210,6 +226,7 @@ export function useAuth(): UseAuthReturn {
     signInWithGoogle,
     signOut,
     sendPasswordResetEmail,
+    confirmPasswordReset,
     resendVerificationEmail,
     isAuthenticated,
     isEmailVerified,
