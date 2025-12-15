@@ -209,6 +209,36 @@ services:
             - "*.pyc"
             - .venv/
 
+  data-export-worker:
+    build: ./apps/data-export-worker
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - GCS_BUCKET_NAME=clausync-exports
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+      - PUBSUB_TOPIC_NOTIFICATION=cmd.send_notification
+      - RUN_INTERVAL_SECONDS=30
+      - EXPORT_EXPIRY_DAYS=7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+      fake-gcs:
+        condition: service_started
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/data-export-worker
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+            - .venv/
+
   # --- Initialization Container ---
   pubsub-init:
     image: curlimages/curl:latest
@@ -254,6 +284,7 @@ services:
         echo "Creating GCS buckets..."
         curl -s -X POST "http://fake-gcs:4443/storage/v1/b" -H "Content-Type: application/json" -d '{"name": "local-snapshots"}' || true
         curl -s -X POST "http://fake-gcs:4443/storage/v1/b" -H "Content-Type: application/json" -d '{"name": "local-uploads"}' || true
+        curl -s -X POST "http://fake-gcs:4443/storage/v1/b" -H "Content-Type: application/json" -d '{"name": "clausync-exports"}' || true
         echo "GCS buckets created."
         
         echo "Initialization complete."

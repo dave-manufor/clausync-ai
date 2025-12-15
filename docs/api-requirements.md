@@ -452,14 +452,14 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 2: Data Access & GDPR Compliance ⏳ IN PROGRESS
+### Phase 2: Data Access & GDPR Compliance ✅ COMPLETED
 *Focus: User data rights and history access*
 
 | Feature | Section | Endpoint/Task | Status |
 |---------|---------|---------------|--------|
 | Diff viewer API | Monitors | `GET /monitors/:id/diff/:old/:new` | ✅ |
 | Export change history | Monitors | `POST /monitors/:id/export` | ✅ |
-| **Data export worker** | Users | Background job to process `DataExport` records | ❌ |
+| **Data export worker** | Users | Background job to process `DataExport` records | ✅ |
 | **Deletion cleanup worker** | Users | Background job in cleanup-worker | ✅ |
 | Cancel deletion | Users | `POST /users/me/cancel-deletion` | ✅ |
 | Download data export | Users | `GET /users/me/export/:id/download` | ✅ |
