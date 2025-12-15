@@ -44,6 +44,7 @@ model User {
   dataExports            DataExport[]
   deletionRequest        DeletionRequest?
   notificationPreference NotificationPreference?
+  documents              UserDocument[]
 
   @@map("users")
 }
@@ -271,3 +272,21 @@ model NotificationPreference {
   @@map("notification_preferences")
 }
 
+// User uploaded documents for RAG personalization
+model UserDocument {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  filename   String
+  mimeType   String    @map("mime_type")
+  fileSize   Int       @map("file_size") // bytes
+  gcsUri     String    @map("gcs_uri")
+  status     String    @default("pending") // pending, processing, ready, failed
+  chunkCount Int?      @map("chunk_count")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz // Soft delete for GDPR
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_documents")
+}
