@@ -216,8 +216,6 @@ body {
    ============================================= */
 .card {
   background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(161, 124, 255, 0.12);
   border-radius: 16px;
   transition: all 0.3s ease;
