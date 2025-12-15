@@ -339,4 +339,123 @@ router.post('/me/cancel-deletion', async (req: Request, res: Response): Promise<
   }
 });
 
+/**
+ * @openapi
+ * /users/me/export/{id}/download:
+ *   get:
+ *     summary: Download data export
+ *     description: Download a completed data export (GDPR Art. 20)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *         description: Export ID
+ *     responses:
+ *       302:
+ *         description: Redirect to download URL
+ *       404:
+ *         description: Export not found
+ *       410:
+ *         description: Export expired
+ *       425:
+ *         description: Export not ready yet
+ */
+router.get('/me/export/:id/download', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.uid;
+
+    const user = await prisma.user.findUnique({ where: { identityProviderUid: userId } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Find the export and verify ownership
+    const dataExport = await prisma.dataExport.findFirst({
+      where: { id, userId: user.id },
+    });
+
+    if (!dataExport) {
+      res.status(404).json({ error: 'Export not found' });
+      return;
+    }
+
+    // Check status
+    if (dataExport.status === 'pending' || dataExport.status === 'processing') {
+      res.status(425).json({
+        error: 'Export not ready',
+        status: dataExport.status,
+        message: 'Your export is still being processed. Please try again later.',
+      });
+      return;
+    }
+
+    if (dataExport.status === 'expired') {
+      res.status(410).json({
+        error: 'Export expired',
+        message: 'This export has expired. Please request a new export.',
+      });
+      return;
+    }
+
+    // Check expiration
+    if (dataExport.expiresAt && new Date() > dataExport.expiresAt) {
+      // Update status to expired
+      await prisma.dataExport.update({
+        where: { id },
+        data: { status: 'expired' },
+      });
+
+      res.status(410).json({
+        error: 'Export expired',
+        expiredAt: dataExport.expiresAt,
+        message: 'This export has expired. Please request a new export.',
+      });
+      return;
+    }
+
+    // Verify file URL exists
+    if (!dataExport.fileUrl) {
+      res.status(500).json({
+        error: 'Export file not available',
+        message: 'The export file could not be found. Please request a new export.',
+      });
+      return;
+    }
+
+    // Audit log for compliance
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'DOWNLOAD',
+        entityType: 'data_export',
+        entityId: id,
+        ipAddress: req.ip,
+      },
+    });
+
+    // In production: redirect to signed GCS URL
+    // For now: return 501 until GCS integration is complete
+    res.status(501).json({
+      error: 'Not Implemented',
+      message: 'GCS signed URL generation not yet configured',
+      hint: 'Download will redirect to file once GCS is integrated',
+      fileUrl: dataExport.fileUrl,
+    });
+
+    // When GCS is ready:
+    // const signedUrl = await generateSignedUrl(dataExport.fileUrl);
+    // res.redirect(302, signedUrl);
+  } catch (error) {
+    console.error('Error downloading export:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 export default router;
+

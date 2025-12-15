@@ -192,6 +192,155 @@ def cleanup_gcs_snapshots(conn, storage_client, retention_date: datetime) -> int
     return deleted_count
 
 
+def process_deletion_requests(conn) -> int:
+    """
+    Process pending GDPR deletion requests (Art. 17 - Right to Erasure).
+    Only processes requests where scheduledAt has passed.
+    """
+    processed_count = 0
+    
+    with conn.cursor() as cur:
+        # Find deletion requests ready for processing
+        cur.execute("""
+            SELECT dr.id, dr.user_id, u.email
+            FROM deletion_requests dr
+            JOIN users u ON dr.user_id = u.id
+            WHERE dr.status = 'pending' 
+              AND dr.scheduled_at <= NOW()
+        """)
+        requests = cur.fetchall()
+        
+        for request in requests:
+            try:
+                user_id = request['user_id']
+                logger.info(f"Processing deletion request for user {user_id}")
+                
+                # Step 1: Anonymize audit logs (preserve trail, remove PII)
+                anonymize_audit_logs(conn, user_id)
+                
+                # Step 2: Delete user data (most will CASCADE from user delete)
+                # Delete subscriptions first to avoid FK issues
+                cur.execute("DELETE FROM subscriptions WHERE user_id = %s", (user_id,))
+                cur.execute("DELETE FROM notifications WHERE user_id = %s", (user_id,))
+                cur.execute("DELETE FROM api_keys WHERE user_id = %s", (user_id,))
+                cur.execute("DELETE FROM data_exports WHERE user_id = %s", (user_id,))
+                cur.execute("DELETE FROM notification_preferences WHERE user_id = %s", (user_id,))
+                
+                # Step 3: Mark user as deleted (soft delete for audit)
+                cur.execute("""
+                    UPDATE users 
+                    SET deleted_at = NOW(), 
+                        email = 'deleted_' || id::text || '@deleted.local',
+                        name = NULL,
+                        identity_provider_uid = 'deleted_' || id::text
+                    WHERE id = %s
+                """, (user_id,))
+                
+                # Step 4: Update deletion request status
+                cur.execute("""
+                    UPDATE deletion_requests 
+                    SET status = 'completed', completed_at = NOW()
+                    WHERE id = %s
+                """, (request['id'],))
+                
+                # Step 5: Log completion (with anonymized reference)
+                cur.execute("""
+                    INSERT INTO audit_logs (id, action, entity_type, entity_id, details, created_at)
+                    VALUES (
+                        gen_random_uuid(),
+                        'GDPR_DELETION_COMPLETED',
+                        'user',
+                        %s,
+                        jsonb_build_object(
+                            'deletion_request_id', %s,
+                            'completed_at', NOW()::text,
+                            'compliance', 'GDPR Art. 17'
+                        ),
+                        NOW()
+                    )
+                """, (user_id, request['id']))
+                
+                conn.commit()
+                processed_count += 1
+                logger.info(f"Successfully processed deletion for user {user_id}")
+                
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error processing deletion request {request['id']}: {e}")
+    
+    return processed_count
+
+
+def anonymize_audit_logs(conn, user_id: str) -> int:
+    """
+    Anonymize audit logs for a deleted user (SOC2 - preserve audit trail).
+    Replaces user_id with a hash but keeps the log intact.
+    """
+    import hashlib
+    
+    # Create a one-way hash of the user_id for anonymization
+    user_hash = hashlib.sha256(str(user_id).encode()).hexdigest()[:16]
+    
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE audit_logs 
+            SET user_id = NULL,
+                details = details || jsonb_build_object('anonymized_user_ref', %s)
+            WHERE user_id = %s
+        """, (user_hash, user_id))
+        
+        return cur.rowcount
+
+
+def cleanup_expired_exports(conn, storage_client) -> int:
+    """
+    Clean up expired data exports.
+    - Updates status to 'expired'
+    - Deletes GCS files
+    """
+    cleaned_count = 0
+    bucket = storage_client.bucket(config.settings.GCS_BUCKET_NAME)
+    
+    with conn.cursor() as cur:
+        # Find expired exports
+        cur.execute("""
+            SELECT id, file_url FROM data_exports
+            WHERE status = 'ready' AND expires_at < NOW()
+        """)
+        exports = cur.fetchall()
+        
+        for export in exports:
+            try:
+                # Delete from GCS if file exists
+                if export['file_url']:
+                    file_url = export['file_url']
+                    if file_url.startswith('gs://'):
+                        blob_path = file_url.split('/', 3)[-1]
+                    else:
+                        blob_path = file_url
+                    
+                    blob = bucket.blob(blob_path)
+                    if blob.exists():
+                        blob.delete()
+                        logger.info(f"Deleted export file: {blob_path}")
+                
+                # Update status
+                cur.execute("""
+                    UPDATE data_exports 
+                    SET status = 'expired', file_url = NULL
+                    WHERE id = %s
+                """, (export['id'],))
+                
+                cleaned_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error cleaning export {export['id']}: {e}")
+        
+        conn.commit()
+    
+    return cleaned_count
+
+
 def run_cleanup():
     """Run the cleanup job."""
     logger.info("Starting cleanup job")
@@ -203,6 +352,10 @@ def run_cleanup():
     storage_client = get_storage_client()
     
     try:
+        # GDPR Art. 17: Process deletion requests that have passed their grace period
+        deletion_count = process_deletion_requests(conn)
+        logger.info(f"Processed {deletion_count} GDPR deletion requests")
+        
         # Cleanup subscriptions
         sub_count = cleanup_subscriptions(conn, retention_date)
         logger.info(f"Hard deleted {sub_count} subscriptions")
@@ -215,7 +368,12 @@ def run_cleanup():
         snap_count = cleanup_gcs_snapshots(conn, storage_client, retention_date)
         logger.info(f"Hard deleted {snap_count} GCS snapshots")
         
-        logger.info(f"Cleanup complete. Total: {sub_count + res_count + snap_count} records")
+        # Cleanup expired data exports
+        export_count = cleanup_expired_exports(conn, storage_client)
+        logger.info(f"Cleaned {export_count} expired data exports")
+        
+        total = deletion_count + sub_count + res_count + snap_count + export_count
+        logger.info(f"Cleanup complete. Total: {total} records processed")
         
     finally:
         conn.close()

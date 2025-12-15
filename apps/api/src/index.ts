@@ -14,6 +14,8 @@ import webhooksRoutes from './routes/webhooks';
 import analyticsRoutes from './routes/analytics';
 import adminRoutes from './routes/admin';
 import auditRoutes from './routes/audit';
+import notificationsRoutes from './routes/notifications';
+import preferencesRoutes from './routes/preferences';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
@@ -85,6 +87,8 @@ app.use('/organizations/:id/webhooks', combinedAuth, webhooksRoutes);
 app.use('/analytics', combinedAuth, analyticsRoutes);
 app.use('/admin', combinedAuth, adminRoutes);
 app.use('/audit-logs', combinedAuth, auditRoutes);
+app.use('/notifications', combinedAuth, notificationsRoutes);
+app.use('/preferences', combinedAuth, preferencesRoutes);
 
 // 404 handler
 app.use((req, res) => {

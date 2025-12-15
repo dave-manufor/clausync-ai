@@ -36,13 +36,14 @@ model User {
   createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime               @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization        Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  subscriptions       Subscription[]
-  notifications       Notification[]
-  contextEmbeddings   UserContextEmbedding[]
-  apiKeys             ApiKey[]
-  dataExports         DataExport[]
-  deletionRequest     DeletionRequest?
+  organization           Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptions          Subscription[]
+  notifications          Notification[]
+  contextEmbeddings      UserContextEmbedding[]
+  apiKeys                ApiKey[]
+  dataExports            DataExport[]
+  deletionRequest        DeletionRequest?
+  notificationPreference NotificationPreference?
 
   @@map("users")
 }
@@ -71,8 +72,9 @@ model Subscription {
   resourceId              String            @map("resource_id") @db.Uuid
   displayName             String?           @map("display_name")
   personalizationEnabled  Boolean           @default(false) @map("personalization_enabled")
-  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz // Soft delete
-  deletedBy               String?           @map("deleted_by") @db.Uuid  // Who deleted
+  pausedAt                DateTime?         @map("paused_at") @db.Timestamptz // When monitoring was paused
+  deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz // Soft delete for GDPR
+  deletedBy               String?           @map("deleted_by") @db.Uuid  // Who deleted (audit trail)
   createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
   user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -253,3 +255,19 @@ model WebhookEndpoint {
   @@index([organizationId])
   @@map("webhook_endpoints")
 }
+
+// User notification preferences (GDPR: user controls their data processing)
+model NotificationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  emailEnabled    Boolean  @default(true) @map("email_enabled")  // CAN-SPAM compliance
+  digestFrequency String   @default("instant") @map("digest_frequency") // instant, daily, weekly
+  riskThreshold   Int      @default(5) @map("risk_threshold") // 1-10, only notify above this
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+

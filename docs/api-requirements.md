@@ -398,8 +398,8 @@ Analysis of actual implementation in `apps/api` vs requirements above.
 | 1. Auth & Authorization | 9 features | 5 features | ⚠️ Partial |
 | 2. User & Org Management | 7 features | 7 features | ✅ Complete |
 | 3. Billing | 8 features | 0 features | ⏸️ Deferred |
-| 4. Notifications | 6 features | 2 features | ❌ Limited |
-| 5. Monitor Management | 8 features | 4 features | ⚠️ Partial |
+| 4. Notifications | 6 features | 6 features | ✅ Complete |
+| 5. Monitor Management | 8 features | 9 features | ✅ Complete |
 | 6. Document Management | 5 features | 0 features | ❌ Missing |
 | 7. Analytics & Reporting | 6 features | 3 features | ⚠️ Partial |
 | 8. Security & Compliance | 11 features | 7 features | ⚠️ Partial |
@@ -415,15 +415,17 @@ Analysis of actual implementation in `apps/api` vs requirements above.
 - ✅ Webhook endpoint CRUD with test functionality
 - ✅ Analytics dashboard, change trends, top resources
 - ✅ OpenAPI/Swagger documentation at `/docs`
+- ✅ **Notifications** - list, mark read, unread count (Phase 1)
+- ✅ **Notification preferences** - GDPR/CAN-SPAM compliant (Phase 1)
+- ✅ **Monitor pause/resume** - with audit logging (Phase 1)
+- ✅ **Snapshot browsing** - list, detail, content endpoints (Phase 1)
 
 ### Known Gaps
-- ❌ No `/notifications` routes (model exists, no API)
-- ❌ No monitor pause/resume functionality
-- ❌ No snapshot browsing API
 - ❌ No document upload for RAG context
 - ❌ Data export worker not processing requests
 - ❌ Webhook delivery worker not implemented
 - ❌ No API versioning (`/api/v1/` prefix missing)
+- ❌ Snapshot content endpoint returns 501 (GCS signed URL not implemented)
 
 ---
 
@@ -433,34 +435,34 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 1: Core User Experience (1-2 weeks)
+### Phase 1: Core User Experience ✅ COMPLETED
 *Focus: Features users expect from day one*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| Notifications list | Notifications | `GET /notifications` |
-| Mark notification read | Notifications | `PATCH /notifications/:id/read` |
-| Mark all read | Notifications | `POST /notifications/read-all` |
-| Notification preferences | Notifications | `GET/PATCH /preferences/notifications` |
-| Pause monitor | Monitors | `PATCH /monitors/:id/pause` |
-| Resume monitor | Monitors | `PATCH /monitors/:id/resume` |
-| List snapshots | Monitors | `GET /monitors/:id/snapshots` |
-| Get snapshot detail | Monitors | `GET /monitors/:id/snapshots/:sid` |
-| Get snapshot content | Monitors | `GET /monitors/:id/snapshots/:sid/content` |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| Notifications list | Notifications | `GET /notifications` | ✅ |
+| Mark notification read | Notifications | `PATCH /notifications/:id/read` | ✅ |
+| Mark all read | Notifications | `POST /notifications/read-all` | ✅ |
+| Notification preferences | Notifications | `GET/PATCH /preferences/notifications` | ✅ |
+| Pause monitor | Monitors | `PATCH /monitors/:id/pause` | ✅ |
+| Resume monitor | Monitors | `PATCH /monitors/:id/resume` | ✅ |
+| List snapshots | Monitors | `GET /monitors/:id/snapshots` | ✅ |
+| Get snapshot detail | Monitors | `GET /monitors/:id/snapshots/:sid` | ✅ |
+| Get snapshot content | Monitors | `GET /monitors/:id/snapshots/:sid/content` | ⚠️ 501 |
 
 ---
 
-### Phase 2: Data Access & GDPR Compliance (1-2 weeks)
+### Phase 2: Data Access & GDPR Compliance ⏳ IN PROGRESS
 *Focus: User data rights and history access*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| Diff viewer API | Monitors | `GET /monitors/:id/diff/:old/:new` |
-| Export change history | Monitors | `POST /monitors/:id/export` |
-| **Data export worker** | Users | Background job to process `DataExport` records |
-| **Deletion cleanup worker** | Users | Background job to process `DeletionRequest` after 30 days |
-| Cancel deletion | Users | `POST /users/me/cancel-deletion` (exists, verify working) |
-| Download data export | Users | `GET /users/me/export/:id/download` |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| Diff viewer API | Monitors | `GET /monitors/:id/diff/:old/:new` | ✅ |
+| Export change history | Monitors | `POST /monitors/:id/export` | ✅ |
+| **Data export worker** | Users | Background job to process `DataExport` records | ❌ |
+| **Deletion cleanup worker** | Users | Background job in cleanup-worker | ✅ |
+| Cancel deletion | Users | `POST /users/me/cancel-deletion` | ✅ |
+| Download data export | Users | `GET /users/me/export/:id/download` | ✅ |
 
 ---
 
