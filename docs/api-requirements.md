@@ -588,6 +588,17 @@ All pending features organized into logical phases.
 
 ---
 
+## Phase 11: Future Roadmap (Not Started)
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| **Manual monitor refresh** | P3 | `POST /monitors/:id/refresh` - Allow users to trigger on-demand re-scrape |
+| **Stale session cleanup** | P3 | Daily cleanup of revoked/inactive sessions |
+| **Analytics aggregation** | P3 | Pre-computed dashboard metrics |
+| **Monitor scheduling UI** | P3 | Per-monitor custom schedules |
+
+---
+
 ## Priority Summary
 
 | Priority | Phases | Est. Time |
@@ -599,4 +610,5 @@ All pending features organized into logical phases.
 | **P4 - Deferred** | 10 | 2-3 weeks |
 
 **Total estimated effort: 14-19 weeks** (phases can be parallelized)
+
 

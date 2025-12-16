@@ -76,6 +76,8 @@ model MonitoredResource {
   selector      String             @default("body")
   currentHash   String?            @map("current_hash")
   lastScrapedAt DateTime?          @map("last_scraped_at") @db.Timestamptz
+  nextCheckAt   DateTime?          @map("next_check_at") @db.Timestamptz    // When to check next (scheduler)
+  claimedAt     DateTime?          @map("claimed_at") @db.Timestamptz       // Claimed by scheduler (for idempotency)
   deletedAt     DateTime?          @map("deleted_at") @db.Timestamptz // Soft delete
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
@@ -85,6 +87,7 @@ model MonitoredResource {
   changeEvents  ChangeEvent[]
 
   @@unique([urlNormalized, selector])
+  @@index([nextCheckAt])  // For efficient scheduler queries
   @@map("monitored_resources")
 }
 

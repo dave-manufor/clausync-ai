@@ -271,6 +271,60 @@ services:
             - "*.pyc"
             - .venv/
 
+  # --- HTTP-Triggered Workers (Cloud Scheduler in prod, manual in dev) ---
+  monitor-refresh-worker:
+    build: ./apps/monitor-refresh-worker
+    ports:
+      - "8087:8080"
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - PUBSUB_TOPIC_SCRAPE=cmd.scrape_url
+      - CRON_SECRET=dev-cron-secret
+      - NODE_ENV=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/monitor-refresh-worker/src
+          target: /app/src
+        - action: rebuild
+          path: ./apps/monitor-refresh-worker/package.json
+
+  billing-lifecycle-worker:
+    build: ./apps/billing-lifecycle-worker
+    ports:
+      - "8086:8080"
+    environment:
+      - GCP_PROJECT_ID=clausync-dev
+      - PUBSUB_EMULATOR_HOST=pubsub-emulator:8085
+      - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
+      - PUBSUB_TOPIC_NOTIFY=cmd.send_notification
+      - CRON_SECRET=dev-cron-secret
+      - NODE_ENV=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pubsub-emulator:
+        condition: service_started
+      pubsub-init:
+        condition: service_completed_successfully
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/billing-lifecycle-worker/src
+          target: /app/src
+        - action: rebuild
+          path: ./apps/billing-lifecycle-worker/package.json
+
+
   # --- Initialization Container ---
   pubsub-init:
     image: curlimages/curl:latest
