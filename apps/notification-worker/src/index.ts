@@ -28,6 +28,11 @@ interface NotificationPayload {
   subject: string;
   summary: string;
   change_event_id: string;
+  is_new_subscription?: boolean;
+  has_personalization?: boolean;
+  risk_level?: string;
+  monitor_name?: string;
+  monitor_url?: string;
 }
 
 async function markNotificationSent(notificationId: string): Promise<void> {
@@ -42,20 +47,46 @@ async function markNotificationSent(notificationId: string): Promise<void> {
   }
 }
 
+async function isAlreadySent(notificationId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(
+      'SELECT sent_at FROM notifications WHERE id = $1',
+      [notificationId]
+    );
+    return result.rows[0]?.sent_at !== null;
+  } catch (error) {
+    console.error('Failed to check notification status:', error);
+    return false;
+  }
+}
+
 async function processMessage(message: Message): Promise<void> {
   try {
     const data: NotificationPayload = JSON.parse(message.data.toString());
     console.log('Processing notification:', { 
       notification_id: data.notification_id,
-      email: data.email 
+      email: data.email,
+      is_new_subscription: data.is_new_subscription,
+      has_personalization: data.has_personalization
     });
 
-    // Render email template
+    // Idempotency check - prevent duplicate emails
+    if (await isAlreadySent(data.notification_id)) {
+      console.log(`Notification ${data.notification_id} already sent, skipping`);
+      message.ack();
+      return;
+    }
+
+    // Render email template with context
     const emailComponent = ChangeAlertEmail({
-      riskLevel: 'medium', // TODO: pass from payload
+      riskLevel: (data.risk_level || 'medium') as 'low' | 'medium' | 'high' | 'critical',
       summary: data.summary,
       changeEventId: data.change_event_id,
       dashboardUrl: DASHBOARD_URL,
+      isNewSubscription: data.is_new_subscription,
+      hasPersonalization: data.has_personalization,
+      monitorName: data.monitor_name,
+      monitorUrl: data.monitor_url,
     });
     const emailHtml = await render(emailComponent as React.ReactElement);
 

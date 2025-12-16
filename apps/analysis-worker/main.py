@@ -11,6 +11,7 @@ from services.ai import analyze_diff, analyze_conflict
 from services.rag import (
     get_user_policy_context, 
     get_subscribers_with_personalization,
+    get_all_subscribers,
     get_old_snapshot,
     create_change_event,
     create_notification
@@ -122,66 +123,83 @@ async def process_change_event(data: dict) -> bool:
         "change_event_id": change_event_id
     })
 
-    # 5. Tier 2 Analysis (Personalized RAG) - failures here don't block success
+    # 5. Tier 2 Analysis & Notifications - failures here don't block success
+    is_initial = analysis.get("is_initial_baseline", False)
+    risk_score = analysis.get("risk_score", 1)
+    global_summary = analysis.get("summary", "")
+    global_risk_level = analysis.get("risk_level", "medium")
+    
     try:
-        subscribers = await get_subscribers_with_personalization(resource_id)
-        logger.info(f"Processing {len(subscribers)} personalized subscribers")
+        # Get ALL active subscribers with their preferences
+        subscribers = await get_all_subscribers(resource_id)
+        logger.info(f"Processing {len(subscribers)} subscribers", extra={
+            "is_initial": is_initial,
+            "resource_id": resource_id
+        })
         
-        # Build rich query context from all analysis data
+        # Build rich query context for RAG personalization
         query_parts = [
-            analysis.get("summary", ""),
+            global_summary,
             " ".join(analysis.get("risk_keywords", [])),
             " ".join(analysis.get("red_flags", [])),
         ]
-        # Include change descriptions - prioritize high-risk changes
         changes = analysis.get("changes", [])
-        
-        # Sort by risk_delta: increased > neutral > decreased
         risk_priority = {"increased": 0, "neutral": 1, "decreased": 2}
         sorted_changes = sorted(
             changes,
             key=lambda c: risk_priority.get(c.get("risk_delta", "neutral"), 1)
         )
-        
-        # Take all changes up to 10, then 60% of remaining up to 25 total
-        if len(sorted_changes) <= 10:
-            selected_changes = sorted_changes
-        else:
-            # First 10 guaranteed, then 60% of rest (up to 25 total)
-            remaining = sorted_changes[10:]
-            additional = int(len(remaining) * 0.6)
-            max_additional = 15  # Cap at 25 total
-            selected_changes = sorted_changes[:10] + remaining[:min(additional, max_additional)]
-        
+        selected_changes = sorted_changes[:25]  # Cap at 25 changes for context
         for change in selected_changes:
             if change.get("description"):
                 query_parts.append(change["description"])
-        
         rag_query = " ".join(filter(None, query_parts))
         
         for subscriber_info in subscribers:
             user_id = subscriber_info["user_id"]
             email = subscriber_info["email"]
+            email_enabled = subscriber_info.get("email_enabled", True)
+            user_risk_threshold = subscriber_info.get("risk_threshold", 5)
+            personalization_enabled = subscriber_info.get("personalization_enabled", False)
+            monitor_name = subscriber_info.get("display_name") or subscriber_info.get("url_normalized", "Monitor")
+            monitor_url = subscriber_info.get("url_normalized", "")
             
             try:
-                # Get user's policy context using rich query
-                policy_chunks = await get_user_policy_context(user_id, rag_query)
+                # Check notification preferences (CAN-SPAM / GDPR compliance)
+                if not email_enabled:
+                    logger.info(f"Skipping email for user (email disabled)", extra={"user_id": user_id})
+                    # Still create in-app notification, just don't send email
+                    continue
                 
-                if policy_chunks:
-                    # Combine policy chunks for analysis
-                    user_policy = "\n\n".join(policy_chunks)
+                # For change detection (not initial), respect risk threshold
+                if not is_initial and risk_score < user_risk_threshold:
+                    logger.info(f"Skipping notification (below threshold)", extra={
+                        "user_id": user_id,
+                        "risk_score": risk_score,
+                        "threshold": user_risk_threshold
+                    })
+                    continue
+                
+                # Build notification content based on personalization setting
+                if personalization_enabled:
+                    # Get user's policy context using RAG
+                    policy_chunks = await get_user_policy_context(user_id, rag_query)
                     
-                    # Run conflict analysis with full context
-                    conflict_result = analyze_conflict(analysis.get("summary", ""), user_policy)
-                    
-                    # Create personalized notification
-                    personalized_summary = f"{analysis.get('summary', '')}\n\n**Policy Analysis:** {conflict_result.get('explanation', '')}"
-                    risk_level = conflict_result.get("conflict_severity", analysis.get("risk_level", "medium"))
-                    
+                    if policy_chunks:
+                        user_policy = "\n\n".join(policy_chunks)
+                        conflict_result = analyze_conflict(global_summary, user_policy)
+                        personalized_summary = f"{global_summary}\n\n**Policy Analysis:** {conflict_result.get('explanation', '')}"
+                        risk_level = conflict_result.get("conflict_severity", global_risk_level)
+                        has_personalization = True
+                    else:
+                        personalized_summary = global_summary
+                        risk_level = global_risk_level
+                        has_personalization = False
                 else:
-                    # No personalization, use global analysis
-                    personalized_summary = analysis.get("summary", "")
-                    risk_level = analysis.get("risk_level", "medium")
+                    # No personalization - use global analysis only
+                    personalized_summary = global_summary
+                    risk_level = global_risk_level
+                    has_personalization = False
                 
                 # Create notification record
                 notification_id = create_notification(
@@ -193,29 +211,40 @@ async def process_change_event(data: dict) -> bool:
                 
                 # Publish notification command for email
                 if notification_id:
-                    # Customize subject based on initial vs comparison
-                    if analysis.get("is_initial_baseline"):
-                        subject = f"[{risk_level.upper()}] Initial Analysis Complete for Monitored Agreement"
+                    # Subject and context based on notification type
+                    if is_initial:
+                        subject = "Your monitor is ready - Initial Analysis Complete"
+                    elif has_personalization:
+                        subject = f"[{risk_level.upper()}] Alert - Action may be required"
                     else:
-                        subject = f"[{risk_level.upper()}] Change Detected in Monitored Agreement"
-                        
+                        subject = f"[{risk_level.upper()}] Change detected in monitored agreement"
+                    
                     notify_payload = {
                         "notification_id": notification_id,
                         "user_id": user_id,
                         "email": email,
                         "subject": subject,
                         "summary": personalized_summary[:500],
-                        "change_event_id": change_event_id
+                        "change_event_id": change_event_id,
+                        "is_new_subscription": is_initial,
+                        "has_personalization": has_personalization,
+                        "risk_level": risk_level,
+                        "monitor_name": monitor_name,
+                        "monitor_url": monitor_url
                     }
                     publisher.publish(notify_topic_path, json.dumps(notify_payload).encode("utf-8"))
-                    logger.info(f"Published notification command", extra={"user_id": user_id})
+                    logger.info(f"Published notification command", extra={
+                        "user_id": user_id,
+                        "is_initial": is_initial,
+                        "has_personalization": has_personalization
+                    })
                     
             except Exception as e:
                 logger.error(f"Failed to process subscriber {user_id}: {e}")
                 # Continue with other subscribers, don't fail the whole job
                 
     except Exception as e:
-        logger.error(f"Failed to process Tier 2 notifications: {e}")
+        logger.error(f"Failed to process notifications: {e}")
         # Tier 2 failures don't cause retry - change event was already created
     
     return True  # Success - ack the message

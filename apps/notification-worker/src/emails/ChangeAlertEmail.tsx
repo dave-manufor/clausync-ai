@@ -17,6 +17,10 @@ interface ChangeAlertEmailProps {
   summary: string;
   changeEventId: string;
   dashboardUrl?: string;
+  isNewSubscription?: boolean;
+  hasPersonalization?: boolean;
+  monitorName?: string;
+  monitorUrl?: string;
 }
 
 const getRiskColor = (level: string) => {
@@ -29,13 +33,51 @@ const getRiskColor = (level: string) => {
   }
 };
 
+const getBannerText = (
+  isNewSubscription: boolean,
+  hasPersonalization: boolean,
+  riskLevel: string
+): string => {
+  if (isNewSubscription) {
+    return 'YOUR MONITOR IS READY';
+  }
+  if (hasPersonalization) {
+    return `${riskLevel.toUpperCase()} ALERT - ACTION MAY BE REQUIRED`;
+  }
+  return `${riskLevel.toUpperCase()} CHANGE DETECTED`;
+};
+
+const getButtonText = (
+  isNewSubscription: boolean,
+  hasPersonalization: boolean
+): string => {
+  if (isNewSubscription) {
+    return 'View Analysis →';
+  }
+  if (hasPersonalization) {
+    return 'Review Conflicts →';
+  }
+  return 'View Details →';
+};
+
 export const ChangeAlertEmail: React.FC<ChangeAlertEmailProps> = ({
   riskLevel = 'medium',
   summary = 'A change was detected in a monitored agreement.',
   changeEventId = '',
   dashboardUrl = 'https://app.clausync.ai',
+  isNewSubscription = false,
+  hasPersonalization = false,
+  monitorName,
+  monitorUrl,
 }) => {
-  const previewText = `[${riskLevel.toUpperCase()}] Change detected in monitored agreement`;
+  const bannerText = getBannerText(isNewSubscription, hasPersonalization, riskLevel);
+  const buttonText = getButtonText(isNewSubscription, hasPersonalization);
+  const bannerColor = isNewSubscription ? '#16A34A' : getRiskColor(riskLevel);
+  const displayName = monitorName || monitorUrl || 'Monitored Agreement';
+  
+  const previewText = isNewSubscription 
+    ? `Your monitor is ready - ${displayName}`
+    : `[${riskLevel.toUpperCase()}] Change detected - ${displayName}`;
 
   return (
     <Html>
@@ -47,27 +89,34 @@ export const ChangeAlertEmail: React.FC<ChangeAlertEmailProps> = ({
             <Heading style={h1}>⚖️ ClauSync AI</Heading>
           </Section>
           
-          <Section style={alertBanner(riskLevel)}>
+          <Section style={alertBanner(bannerColor)}>
             <Text style={alertText}>
-              {riskLevel.toUpperCase()} RISK DETECTED
+              {bannerText}
             </Text>
           </Section>
 
           <Section style={content}>
-            <Heading as="h2" style={h2}>Change Summary</Heading>
+            <Text style={monitorLabel}>Monitor:</Text>
+            <Text style={monitorNameStyle}>{displayName}</Text>
+            
+            <Heading as="h2" style={h2}>
+              {isNewSubscription ? 'Initial Analysis Summary' : 'Change Summary'}
+            </Heading>
             <Text style={paragraph}>{summary}</Text>
             
             <Hr style={hr} />
             
             <Text style={paragraph}>
-              View the full analysis and take action in your dashboard.
+              {isNewSubscription 
+                ? 'Your document has been analyzed. View the full analysis in your dashboard.'
+                : 'View the full analysis and take action in your dashboard.'}
             </Text>
             
             <Link
               href={`${dashboardUrl}/changes/${changeEventId}`}
               style={button}
             >
-              View Full Analysis →
+              {buttonText}
             </Link>
           </Section>
 
@@ -115,8 +164,8 @@ const h2 = {
   margin: '0 0 16px',
 };
 
-const alertBanner = (level: string) => ({
-  backgroundColor: getRiskColor(level),
+const alertBanner = (color: string) => ({
+  backgroundColor: color,
   borderRadius: '8px',
   padding: '16px',
   textAlign: 'center' as const,
@@ -136,6 +185,23 @@ const content = {
   borderRadius: '8px',
   padding: '32px',
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+};
+
+const monitorLabel = {
+  color: '#6b7280',
+  fontSize: '12px',
+  fontWeight: '500',
+  margin: '0 0 4px',
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.5px',
+};
+
+const monitorNameStyle = {
+  color: '#1a1a2e',
+  fontSize: '16px',
+  fontWeight: '600',
+  margin: '0 0 20px',
+  wordBreak: 'break-all' as const,
 };
 
 const paragraph = {

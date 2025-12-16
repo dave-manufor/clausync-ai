@@ -6,6 +6,73 @@ import * as Diff from 'diff';
 
 const router = Router();
 const SCRAPE_TOPIC = process.env.PUBSUB_TOPIC_SCRAPE || 'cmd.scrape_url';
+const NOTIFY_TOPIC = process.env.PUBSUB_TOPIC_NOTIFY || 'cmd.send_notification';
+
+/**
+ * Send an immediate notification for a user subscribing to an existing resource
+ * that already has analysis data.
+ */
+async function sendImmediateNotification(
+  userId: string,
+  userEmail: string,
+  resourceId: string,
+  monitorName: string | null,
+  monitorUrl: string
+): Promise<void> {
+  // Find the most recent change event for this resource (within last 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  
+  const latestChangeEvent = await prisma.changeEvent.findFirst({
+    where: {
+      resourceId,
+      createdAt: { gte: sevenDaysAgo },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!latestChangeEvent) {
+    console.log('No recent change event found, skipping immediate notification');
+    return;
+  }
+
+  // Create a notification record
+  const notification = await prisma.notification.create({
+    data: {
+      userId,
+      changeEventId: latestChangeEvent.id,
+      personalizedSummary: latestChangeEvent.globalAiSummary || 'Your monitor is ready.',
+      riskLevel: getRiskLevelFromScore(latestChangeEvent.globalRiskScore || 1),
+    },
+  });
+
+  // Publish notification command
+  await publishMessage(NOTIFY_TOPIC, {
+    notification_id: notification.id,
+    user_id: userId,
+    email: userEmail,
+    subject: 'Your monitor is ready - Initial Analysis Complete',
+    summary: (latestChangeEvent.globalAiSummary || 'Your monitor is ready.').slice(0, 500),
+    change_event_id: latestChangeEvent.id,
+    is_new_subscription: true,
+    has_personalization: false,
+    risk_level: getRiskLevelFromScore(latestChangeEvent.globalRiskScore || 1),
+    monitor_name: monitorName || monitorUrl,
+    monitor_url: monitorUrl,
+  });
+
+  console.log('Sent immediate notification for new subscription', {
+    userId,
+    resourceId,
+    changeEventId: latestChangeEvent.id,
+  });
+}
+
+function getRiskLevelFromScore(score: number): string {
+  if (score >= 8) return 'critical';
+  if (score >= 6) return 'high';
+  if (score >= 4) return 'medium';
+  return 'low';
+}
 
 /**
  * POST /monitors
@@ -40,6 +107,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       where: { urlNormalized_selector: { urlNormalized: normalizedUrl, selector } },
     });
 
+    // Track if this is an existing resource with analysis
+    let isExistingResourceWithAnalysis = false;
+
     if (!resource) {
       // Create new resource
       resource = await prisma.monitoredResource.create({
@@ -53,6 +123,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         selector,
         timestamp: Date.now(),
       });
+    } else {
+      // Existing resource - may have analysis data
+      isExistingResourceWithAnalysis = true;
     }
 
     if (resource.deletedAt) {
@@ -102,6 +175,22 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         },
       });
 
+      // Send immediate notification if resource has existing analysis
+      if (isExistingResourceWithAnalysis) {
+        try {
+          await sendImmediateNotification(
+            user.id,
+            user.email,
+            resource.id,
+            reactivatedSubscription.displayName,
+            normalizedUrl
+          );
+        } catch (notifyError) {
+          console.error('Failed to send immediate notification:', notifyError);
+          // Don't fail the request if notification fails
+        }
+      }
+
       res.status(201).json({
         message: 'Monitor restored successfully',
         subscription: reactivatedSubscription,
@@ -131,6 +220,22 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         ipAddress: req.ip,
       },
     });
+
+    // Send immediate notification if resource has existing analysis
+    if (isExistingResourceWithAnalysis) {
+      try {
+        await sendImmediateNotification(
+          user.id,
+          user.email,
+          resource.id,
+          subscription.displayName,
+          normalizedUrl
+        );
+      } catch (notifyError) {
+        console.error('Failed to send immediate notification:', notifyError);
+        // Don't fail the request if notification fails
+      }
+    }
 
     res.status(201).json({
       message: 'Monitor created successfully',

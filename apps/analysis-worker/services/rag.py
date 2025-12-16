@@ -167,6 +167,53 @@ async def get_subscribers_with_personalization(resource_id: str) -> list[dict]:
         logger.error(f"Failed to get subscribers: {e}")
         return []
 
+
+async def get_all_subscribers(resource_id: str) -> list[dict]:
+    """
+    Get all active, non-paused subscribers with their notification preferences.
+    
+    Returns:
+        List of dicts with: user_id, email, subscription_id, personalization_enabled,
+        email_enabled, risk_threshold, digest_frequency, display_name, url_normalized
+    """
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT 
+                    u.id as user_id, 
+                    u.email, 
+                    s.id as subscription_id,
+                    s.personalization_enabled,
+                    s.display_name,
+                    mr.url_normalized,
+                    COALESCE(np.email_enabled, TRUE) as email_enabled,
+                    COALESCE(np.risk_threshold, 5) as risk_threshold,
+                    COALESCE(np.digest_frequency, 'instant') as digest_frequency
+                FROM subscriptions s
+                JOIN users u ON s.user_id = u.id
+                JOIN monitored_resources mr ON s.resource_id = mr.id
+                LEFT JOIN notification_preferences np ON np.user_id = u.id
+                WHERE s.resource_id = %s 
+                  AND s.deleted_at IS NULL 
+                  AND s.paused_at IS NULL
+                  AND u.deleted_at IS NULL
+                """,
+                (resource_id,)
+            )
+            results = cur.fetchall()
+        conn.close()
+        
+        logger.info(f"Found {len(results)} active subscribers for resource", 
+                   extra={"resource_id": resource_id})
+        return [dict(r) for r in results]
+        
+    except Exception as e:
+        logger.error(f"Failed to get all subscribers: {e}")
+        return []
+
+
 def create_change_event(resource_id: str, old_snapshot_id: str | None, new_snapshot_id: str, 
                         diff_json: dict, ai_summary: str, risk_score: int, keywords: list[str]) -> str | None:
     """Create a change event record."""

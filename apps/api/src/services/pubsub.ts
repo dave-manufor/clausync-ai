@@ -1,6 +1,6 @@
 import { PubSub } from '@google-cloud/pubsub';
 
-const projectId = process.env.GCP_PROJECT_ID || 'clausync-ai-dev';
+const projectId = process.env.GCP_PROJECT_ID || 'clausync-dev';
 
 const pubSubClient = new PubSub({
     projectId
