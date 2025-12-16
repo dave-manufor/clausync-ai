@@ -116,6 +116,26 @@ IMPORTANT: Be discriminating! A typo fix is 1. A new arbitration clause is 9-10.
 - Would you consider terminating the vendor? → 9+
 """
 
+
+def smart_truncate(text: str, max_chars: int) -> str:
+    """
+    Intelligently truncate text to max_chars.
+    Preserves beginning (70%) and ending (30%) of document.
+    """
+    if not text or len(text) <= max_chars:
+        return text
+    
+    # Keep 70% beginning, 30% ending to capture both intro and signatures/amendments
+    beginning_size = int(max_chars * 0.7)
+    ending_size = max_chars - beginning_size - 50  # Reserve space for truncation marker
+    
+    return (
+        text[:beginning_size] + 
+        "\n\n[...content truncated for length...]\n\n" + 
+        text[-ending_size:]
+    )
+
+
 def analyze_initial_baseline(markdown_content: str) -> dict | None:
     """
     Analyze a document for the first time (no previous version to compare).
@@ -126,8 +146,10 @@ def analyze_initial_baseline(markdown_content: str) -> dict | None:
     try:
         model = GenerativeModel(config.settings.AI_MODEL)
         
-        # Sanitize scraped content
-        safe_content = sanitize_user_content(markdown_content[:50000])
+        # Sanitize and truncate scraped content using config limits
+        safe_content = sanitize_user_content(
+            smart_truncate(markdown_content, config.settings.MAX_CONTENT_BASELINE)
+        )
         
         prompt = f"""You are a legal analyst specializing in vendor risk assessment. This is the FIRST TIME we are analyzing this Terms of Service / Legal Agreement.
 
@@ -203,9 +225,13 @@ def analyze_comparison(new_content: str, old_content: str) -> dict | None:
     try:
         model = GenerativeModel(config.settings.AI_MODEL)
         
-        # Sanitize scraped content
-        safe_old = sanitize_user_content(old_content[:25000])
-        safe_new = sanitize_user_content(new_content[:25000])
+        # Sanitize and truncate scraped content using config limits
+        safe_old = sanitize_user_content(
+            smart_truncate(old_content, config.settings.MAX_CONTENT_COMPARISON)
+        )
+        safe_new = sanitize_user_content(
+            smart_truncate(new_content, config.settings.MAX_CONTENT_COMPARISON)
+        )
         
         prompt = f"""You are a legal AI analyst. Compare the following two versions of a Terms of Service / Legal Agreement and identify all meaningful changes.
 

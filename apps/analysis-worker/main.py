@@ -127,19 +127,51 @@ async def process_change_event(data: dict) -> bool:
         subscribers = await get_subscribers_with_personalization(resource_id)
         logger.info(f"Processing {len(subscribers)} personalized subscribers")
         
+        # Build rich query context from all analysis data
+        query_parts = [
+            analysis.get("summary", ""),
+            " ".join(analysis.get("risk_keywords", [])),
+            " ".join(analysis.get("red_flags", [])),
+        ]
+        # Include change descriptions - prioritize high-risk changes
+        changes = analysis.get("changes", [])
+        
+        # Sort by risk_delta: increased > neutral > decreased
+        risk_priority = {"increased": 0, "neutral": 1, "decreased": 2}
+        sorted_changes = sorted(
+            changes,
+            key=lambda c: risk_priority.get(c.get("risk_delta", "neutral"), 1)
+        )
+        
+        # Take all changes up to 10, then 60% of remaining up to 25 total
+        if len(sorted_changes) <= 10:
+            selected_changes = sorted_changes
+        else:
+            # First 10 guaranteed, then 60% of rest (up to 25 total)
+            remaining = sorted_changes[10:]
+            additional = int(len(remaining) * 0.6)
+            max_additional = 15  # Cap at 25 total
+            selected_changes = sorted_changes[:10] + remaining[:min(additional, max_additional)]
+        
+        for change in selected_changes:
+            if change.get("description"):
+                query_parts.append(change["description"])
+        
+        rag_query = " ".join(filter(None, query_parts))
+        
         for subscriber_info in subscribers:
             user_id = subscriber_info["user_id"]
             email = subscriber_info["email"]
             
             try:
-                # Get user's policy context
-                policy_chunks = await get_user_policy_context(user_id, analysis.get("summary", ""))
+                # Get user's policy context using rich query
+                policy_chunks = await get_user_policy_context(user_id, rag_query)
                 
                 if policy_chunks:
                     # Combine policy chunks for analysis
                     user_policy = "\n\n".join(policy_chunks)
                     
-                    # Run conflict analysis
+                    # Run conflict analysis with full context
                     conflict_result = analyze_conflict(analysis.get("summary", ""), user_policy)
                     
                     # Create personalized notification
