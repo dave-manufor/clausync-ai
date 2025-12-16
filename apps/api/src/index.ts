@@ -19,6 +19,7 @@ import preferencesRoutes from './routes/preferences';
 import documentsRoutes from './routes/documents';
 import reportsRoutes from './routes/reports';
 import changelogRoutes from './routes/changelog';
+import authRoutes from './routes/auth';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
@@ -83,6 +84,7 @@ app.use('/api/v1/changelog', changelogRoutes);
 const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification];
 
 // ============ API v1 Routes (Current) ============
+app.use('/api/v1/auth', combinedAuth, authRoutes);
 app.use('/api/v1/monitors', combinedAuth, monitorRoutes);
 app.use('/api/v1/changes', combinedAuth, changesRoutes);
 app.use('/api/v1/api-keys', combinedAuth, apiKeysRoutes);

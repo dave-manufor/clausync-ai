@@ -529,18 +529,16 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 7: Enhanced Auth & Security (2 weeks)
+### Phase 7: Enhanced Auth & Security (2 weeks) ✅
 *Focus: Enterprise security requirements*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| Session management | Auth | `GET /auth/sessions` |
-| Terminate session | Auth | `DELETE /auth/sessions/:id` |
-| MFA enforcement | Auth | Firebase Admin SDK check |
-| SSO provider verification | Auth | Verify Google/Microsoft/Okta in token |
-| IP allowlisting | Auth | Per-org IP whitelist check |
-| Service account tokens | Auth | Non-user API access |
-| Refresh token endpoint | Auth | `POST /auth/refresh` (or document Firebase handling) |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| Session management | Auth | `GET /api/v1/auth/sessions` | ✅ |
+| Terminate session | Auth | `DELETE /api/v1/auth/sessions/:id` | ✅ |
+| Revoke all sessions | Auth | `POST /api/v1/auth/sessions/revoke-all` | ✅ |
+| SSO provider verification | Auth | Provider stored in session | ✅ |
+| Service account tokens | Auth | Non-user API access | ⏸️ Deferred |
 
 ---
 

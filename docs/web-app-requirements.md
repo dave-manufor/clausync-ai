@@ -217,6 +217,17 @@ Comprehensive requirements organized by implementation phase.
 | Changelog page (`/changelog`) | Screen | Optional |
 | API version display in footer/settings | UX | Optional |
 
+### Backend Sync: Session Management (Phase 7)
+*Source: API Phase 7 - Enhanced Auth & Security*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| Active sessions list (`/settings/sessions`) | Screen | Required |
+| Device info, IP, SSO provider display | UX | Required |
+| Revoke session button | Component | Required |
+| "Revoke all sessions" button | Component | Required |
+| Current session indicator | UX | Required |
+
 ---
 
 ## Phase 4: Enterprise & Admin (Weeks 13-16)
