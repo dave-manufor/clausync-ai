@@ -20,10 +20,13 @@ import documentsRoutes from './routes/documents';
 import reportsRoutes from './routes/reports';
 import changelogRoutes from './routes/changelog';
 import authRoutes from './routes/auth';
+import billingRoutes from './routes/billing';
+import paystackWebhookRoutes from './routes/paystack-webhook';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
 import { swaggerSpec } from './config/swagger';
+import trackApiUsage from './middleware/usage-tracker';
 import prisma from './db/client';
 
 // Load environment variables
@@ -80,10 +83,16 @@ app.get('/openapi.json', (req, res) => res.json(swaggerSpec));
 // Public changelog endpoint
 app.use('/api/v1/changelog', changelogRoutes);
 
+// Webhook endpoints (no auth)
+app.use('/webhooks/paystack', express.raw({ type: 'application/json' }), paystackWebhookRoutes);
+
 // Combined authentication: API Key first, then Firebase token, then email verification
 const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification];
 
 // ============ API v1 Routes (Current) ============
+// Track API usage for billing (runs async, non-blocking)
+app.use('/api/v1', trackApiUsage);
+
 app.use('/api/v1/auth', combinedAuth, authRoutes);
 app.use('/api/v1/monitors', combinedAuth, monitorRoutes);
 app.use('/api/v1/changes', combinedAuth, changesRoutes);
@@ -99,6 +108,7 @@ app.use('/api/v1/notifications', combinedAuth, notificationsRoutes);
 app.use('/api/v1/preferences', combinedAuth, preferencesRoutes);
 app.use('/api/v1/documents', combinedAuth, documentsRoutes);
 app.use('/api/v1/reports', combinedAuth, reportsRoutes);
+app.use('/api/v1/billing', combinedAuth, billingRoutes);
 
 // ============ Legacy Routes (Deprecated - will be removed in 6 months) ============
 // These routes are deprecated. Use /api/v1/* instead.

@@ -11,16 +11,17 @@ datasource db {
 }
 
 model Organization {
-  id               String            @id @default(uuid()) @db.Uuid
-  name             String
-  stripeCustomerId String?           @map("stripe_customer_id")
-  homeRegion       String            @default("us-central1") @map("home_region")
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String            @id @default(uuid()) @db.Uuid
+  name               String
+  paymentCustomerId  String?           @map("payment_customer_id")  // PayStack/Stripe customer ID
+  homeRegion         String            @default("us-central1") @map("home_region")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
   
-  users            User[]
-  invitations      Invitation[]
-  webhooks         WebhookEndpoint[]
+  users              User[]
+  invitations        Invitation[]
+  webhooks           WebhookEndpoint[]
+  subscription       OrganizationSubscription?
 
   @@map("organizations")
 }
@@ -327,4 +328,68 @@ model Report {
 
   @@index([userId])
   @@map("reports")
+}
+
+// Subscription tier definitions (archiveable)
+model SubscriptionTier {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @unique // free, pro, business, enterprise
+  displayName     String    @map("display_name")
+  priceMonthly    Int       @map("price_monthly")     // cents (0 for free)
+  priceYearly     Int       @map("price_yearly")      // cents
+  currency        String    @default("USD")
+  monitorLimit    Int       @map("monitor_limit")
+  teamLimit       Int       @map("team_limit")
+  documentLimit   Int       @map("document_limit")
+  apiRateLimit    Int       @map("api_rate_limit")    // requests per month
+  checkFrequency  String    @default("daily") @map("check_frequency") // weekly, daily, hourly
+  historyDays     Int       @map("history_days")
+  reportsPerMonth Int?      @map("reports_per_month")
+  webhookLimit    Int       @default(0) @map("webhook_limit")
+  features        Json?     // Additional feature flags
+  isActive        Boolean   @default(true) @map("is_active")  // false = archived
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscriptions   OrganizationSubscription[]
+
+  @@map("subscription_tiers")
+}
+
+// Organization subscription to a tier
+model OrganizationSubscription {
+  id                      String    @id @default(uuid()) @db.Uuid
+  organizationId          String    @unique @map("organization_id") @db.Uuid
+  tierId                  String    @map("tier_id") @db.Uuid
+  paymentSubscriptionId   String?   @map("payment_subscription_id")  // PayStack/Stripe subscription ID
+  status                  String    @default("trialing")  // trialing, active, past_due, canceled, paused
+  currentPeriodStart      DateTime? @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd        DateTime? @map("current_period_end") @db.Timestamptz
+  trialEndsAt             DateTime? @map("trial_ends_at") @db.Timestamptz
+  canceledAt              DateTime? @map("canceled_at") @db.Timestamptz
+  cancelAtPeriodEnd       Boolean   @default(false) @map("cancel_at_period_end")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tier                    SubscriptionTier @relation(fields: [tierId], references: [id])
+
+  @@index([tierId])
+  @@map("organization_subscriptions")
+}
+
+// Usage tracking for billing (API requests, reports, etc.)
+model UsageRecord {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  metric          String    // api_requests, reports_generated, ai_queries
+  count           Int       @default(0)
+  periodStart     DateTime  @map("period_start") @db.Date   // First day of month
+  periodEnd       DateTime  @map("period_end") @db.Date     // Last day of month
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([organizationId, metric, periodStart])
+  @@index([organizationId, periodStart])
+  @@map("usage_records")
 }

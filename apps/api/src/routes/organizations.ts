@@ -3,6 +3,7 @@ import prisma from '../db/client';
 import { z } from 'zod';
 import { requireRole, requireOrgMembership } from '../middleware/rbac';
 import { isValidRole } from '../utils/roles';
+import { assignFreeTier } from '../services/subscription';
 
 const router = Router();
 
@@ -81,6 +82,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       where: { id: user.id },
       data: { role: 'owner' },
     });
+
+    // Auto-assign free tier subscription
+    await assignFreeTier(organization.id);
 
     // Audit log
     await prisma.auditLog.create({

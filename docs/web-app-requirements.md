@@ -228,6 +228,19 @@ Comprehensive requirements organized by implementation phase.
 | "Revoke all sessions" button | Component | Required |
 | Current session indicator | UX | Required |
 
+### Backend Sync: Billing & Subscriptions (Phase 10)
+*Source: API Phase 10 - Billing Integration*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| Subscription tiers list (`/pricing`) | Screen | Required |
+| Current subscription status (`/settings/billing`) | Screen | Required |
+| Subscribe/upgrade flow | Component | Required |
+| Cancel subscription with confirmation | Component | Required |
+| Usage meters (monitors, documents, team) | Component | Required |
+| Invoice history | Component | Optional |
+| Plan limit warnings in UI | UX | Required |
+
 ---
 
 ## Phase 4: Enterprise & Admin (Weeks 13-16)

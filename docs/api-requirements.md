@@ -557,7 +557,7 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 9: Bulk Operations (1 week)
+### Phase 9: Bulk Operations (1 week) ⏸️ *DEFERRED*
 *Focus: Power user efficiency*
 
 | Feature | Section | Endpoint/Task |
@@ -569,23 +569,22 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 10: Billing Integration (2-3 weeks)
+### Phase 10: Billing Integration (2-3 weeks) ✅
 *Focus: Monetization (when payment provider selected)*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| Stripe customer creation | Billing | On org creation |
-| Get subscription | Billing | `GET /billing/subscription` |
-| Create/update subscription | Billing | `POST /billing/subscription` |
-| Cancel subscription | Billing | `DELETE /billing/subscription` |
-| List invoices | Billing | `GET /billing/invoices` |
-| Download invoice PDF | Billing | `GET /billing/invoices/:id/pdf` |
-| Billing portal session | Billing | `POST /billing/portal` |
-| Usage metering | Billing | `GET /billing/usage` |
-| Stripe webhook handler | Billing | `POST /webhooks/stripe` |
-| Plan limits enforcement | Billing | Middleware to check quotas |
-| Trial period management | Billing | 14-day trial logic |
-| Proration handling | Billing | Upgrade/downgrade calculations |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| Payment processor abstraction | Billing | PayStack/Stripe swappable | ✅ |
+| Subscription tiers | Billing | `SubscriptionTier` model (archiveable) | ✅ |
+| Org subscription | Billing | `OrganizationSubscription` model | ✅ |
+| Get subscription | Billing | `GET /api/v1/billing/subscription` | ✅ |
+| Create subscription | Billing | `POST /api/v1/billing/subscription` | ✅ |
+| Cancel subscription | Billing | `DELETE /api/v1/billing/subscription` | ✅ |
+| List tiers | Billing | `GET /api/v1/billing/tiers` | ✅ |
+| Usage stats | Billing | `GET /api/v1/billing/usage` | ✅ |
+| List invoices | Billing | `GET /api/v1/billing/invoices` | ✅ |
+| PayStack webhook | Billing | `POST /webhooks/paystack` | ✅ |
+| Plan limits enforcement | Billing | `plan-limits.ts` middleware | ✅ |
 
 ---
 
