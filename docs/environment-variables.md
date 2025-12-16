@@ -27,7 +27,22 @@ This document details all environment variables required for Clausync.ai service
 - In dev with `docker-compose`, Pub/Sub emulator is used automatically via `PUBSUB_EMULATOR_HOST`
 - Auth is bypassed when `PUBSUB_EMULATOR_HOST` is set (dev user assigned)
 
----
+### Cron Configuration
+
+| Variable | Required | Dev Default | Description | How to Get |
+|----------|----------|-------------|-------------|------------|
+| `CRON_SECRET` | ⚠️ Prod | `dev-cron-secret` | Secret for cron endpoint auth | Generate secure random string |
+
+**Cloud Scheduler Setup (Production):**
+```bash
+# Create scheduler job to run daily cron
+gcloud scheduler jobs create http subscription-cron \
+  --location=us-central1 \
+  --schedule="0 0 * * *" \
+  --uri="https://api.clausync.ai/api/v1/cron/daily" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_CRON_SECRET"
+```
 
 ## Service: Ingestion Worker (`apps/ingestion-worker`)
 

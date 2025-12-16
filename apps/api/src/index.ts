@@ -22,6 +22,7 @@ import changelogRoutes from './routes/changelog';
 import authRoutes from './routes/auth';
 import billingRoutes from './routes/billing';
 import paystackWebhookRoutes from './routes/paystack-webhook';
+import cronRoutes from './routes/cron';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
@@ -85,6 +86,9 @@ app.use('/api/v1/changelog', changelogRoutes);
 
 // Webhook endpoints (no auth)
 app.use('/webhooks/paystack', express.raw({ type: 'application/json' }), paystackWebhookRoutes);
+
+// Cron endpoints (protected by cron secret, not user auth)
+app.use('/api/v1/cron', cronRoutes);
 
 // Combined authentication: API Key first, then Firebase token, then email verification
 const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification];

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db/client';
 import { sendSuccess, sendPaginated, errors } from '../middleware/response-formatter';
-import UAParser from 'ua-parser-js';
+import * as UAParserModule from 'ua-parser-js';
 
 const router = Router();
 
@@ -11,6 +11,7 @@ const router = Router();
 function parseDeviceInfo(userAgent: string | undefined): string {
   if (!userAgent) return 'Unknown Device';
   
+  const UAParser = (UAParserModule as any).default || UAParserModule;
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
   

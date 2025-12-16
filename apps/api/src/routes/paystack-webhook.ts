@@ -2,13 +2,20 @@
  * PayStack Webhook Handler
  * 
  * Receives and processes PayStack webhook events.
+ * Implements proper subscription lifecycle with grace periods.
  * https://paystack.com/docs/api/#webhook
  */
 
 import { Router, Request, Response } from 'express';
 import prisma from '../db/client';
 import { getPaymentProcessor } from '../services/payment';
-import { downgradeToFreeTier } from '../services/subscription';
+import { 
+  setSubscriptionPastDue, 
+  recoverSubscription, 
+  downgradeToFreeTier,
+  upgradeSubscription,
+} from '../services/subscription';
+import { sendBillingNotification } from '../services/billing-notifications';
 
 const router = Router();
 
@@ -55,7 +62,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
       case 'subscription.not_renew':
       case 'subscription.disable':
-        await handleSubscriptionCancel(event.data);
+        // Final cancellation - after all retries exhausted
+        await handleSubscriptionDisabled(event.data);
         break;
 
       case 'charge.success':
@@ -63,6 +71,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         break;
 
       case 'invoice.payment_failed':
+        // First failure - enter grace period
         await handlePaymentFailed(event.data);
         break;
 
@@ -77,6 +86,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/**
+ * Handle new subscription creation from PayStack
+ */
 async function handleSubscriptionCreate(data: any): Promise<void> {
   const customerCode = data.customer?.customer_code;
   const subscriptionCode = data.subscription_code;
@@ -104,29 +116,17 @@ async function handleSubscriptionCreate(data: any): Promise<void> {
     return;
   }
 
-  await prisma.organizationSubscription.upsert({
-    where: { organizationId: org.id },
-    create: {
-      organizationId: org.id,
-      tierId: tier.id,
-      paymentSubscriptionId: subscriptionCode,
-      status: 'active',
-      currentPeriodStart: new Date(data.createdAt),
-      currentPeriodEnd: new Date(data.next_payment_date),
-    },
-    update: {
-      tierId: tier.id,
-      paymentSubscriptionId: subscriptionCode,
-      status: 'active',
-      currentPeriodStart: new Date(data.createdAt),
-      currentPeriodEnd: new Date(data.next_payment_date),
-    },
-  });
+  // Use subscription service for proper lifecycle management
+  await upgradeSubscription(org.id, tier.id, subscriptionCode);
 
-  console.log(`Subscription created for org: ${org.id}`);
+  console.log(`Subscription created for org: ${org.id}, tier: ${tier.name}`);
 }
 
-async function handleSubscriptionCancel(data: any): Promise<void> {
+/**
+ * Handle subscription disabled (after all payment retries failed)
+ * This is the FINAL cancellation - downgrade to free tier
+ */
+async function handleSubscriptionDisabled(data: any): Promise<void> {
   const subscriptionCode = data.subscription_code;
 
   if (!subscriptionCode) return;
@@ -137,43 +137,65 @@ async function handleSubscriptionCancel(data: any): Promise<void> {
 
   if (!subscription) return;
 
-  // Downgrade to free tier on cancellation
-  await downgradeToFreeTier(subscription.organizationId, 'canceled');
+  // Final downgrade to free tier after PayStack exhausted retries
+  await downgradeToFreeTier(subscription.organizationId, 'payment_failed', undefined, 'webhook');
 
-  console.log(`Subscription canceled, downgraded to free: ${subscription.organizationId}`);
+  console.log(`Subscription disabled, downgraded to free: ${subscription.organizationId}`);
 }
 
+/**
+ * Handle successful charge
+ * If subscription is past_due, this recovers it to active
+ */
 async function handleChargeSuccess(data: any): Promise<void> {
-  // Log successful payment for audit
   const customerCode = data.customer?.customer_code;
   const amount = data.amount;
   const reference = data.reference;
 
   console.log(`Payment success: ${customerCode}, amount: ${amount}, ref: ${reference}`);
 
-  // Find organization and log
+  if (!customerCode) return;
+
+  // Find organization
   const org = await prisma.organization.findFirst({
     where: { paymentCustomerId: customerCode },
   });
 
-  if (org) {
-    // Update subscription period if needed
-    const subscription = await prisma.organizationSubscription.findUnique({
-      where: { organizationId: org.id },
-    });
+  if (!org) return;
 
-    if (subscription) {
-      await prisma.organizationSubscription.update({
-        where: { id: subscription.id },
-        data: {
-          status: 'active',
-          // Extend period based on charge
-        },
-      });
-    }
+  // Get current subscription
+  const subscription = await prisma.organizationSubscription.findUnique({
+    where: { organizationId: org.id },
+  });
+
+  if (!subscription) return;
+
+  // If in grace period (past_due), recover to active
+  if (subscription.status === 'past_due') {
+    await recoverSubscription(org.id);
+    console.log(`Subscription recovered from past_due: ${org.id}`);
+  } else {
+    // Normal renewal - extend period
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+    await prisma.organizationSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: nextMonth,
+      },
+    });
+    console.log(`Subscription renewed: ${org.id}`);
   }
 }
 
+/**
+ * Handle first payment failure
+ * Sets subscription to past_due (grace period begins)
+ * PayStack will retry payment automatically
+ */
 async function handlePaymentFailed(data: any): Promise<void> {
   const customerCode = data.customer?.customer_code;
 
@@ -185,10 +207,11 @@ async function handlePaymentFailed(data: any): Promise<void> {
 
   if (!org) return;
 
-  // Downgrade to free tier on payment failure
-  await downgradeToFreeTier(org.id, 'payment_failed');
+  // Set to past_due (grace period) - NOT immediate downgrade
+  await setSubscriptionPastDue(org.id);
 
-  console.log(`Payment failed, downgraded to free: ${org.id}`);
+  console.log(`Payment failed, grace period started for org: ${org.id}`);
 }
 
 export default router;
+

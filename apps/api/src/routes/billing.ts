@@ -10,6 +10,7 @@ import { getPaymentProcessor } from '../services/payment';
 import { sendSuccess, sendPaginated, errors } from '../middleware/response-formatter';
 import { getPlanLimits, getMonitorCount, getDocumentCount, getTeamMemberCount } from '../middleware/plan-limits';
 import { getAllUsage } from '../services/usage';
+import { startTrial, assignFreeTier } from '../services/subscription';
 
 const router = Router();
 
@@ -110,6 +111,18 @@ router.get('/subscription', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // Calculate grace period info
+    const isGracePeriod = subscription.status === 'past_due';
+    const gracePeriodEndsAt = isGracePeriod 
+      ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now (estimate)
+      : null;
+
+    // Calculate trial info
+    const isTrialing = subscription.status === 'trialing';
+    const trialDaysRemaining = isTrialing && subscription.trialEndsAt
+      ? Math.max(0, Math.ceil((subscription.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+      : null;
+
     sendSuccess(res, {
       id: subscription.id,
       tier: subscription.tier.name,
@@ -117,8 +130,16 @@ router.get('/subscription', async (req: Request, res: Response): Promise<void> =
       status: subscription.status,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
+      // Trial info
+      isTrialing,
       trialEndsAt: subscription.trialEndsAt,
+      trialDaysRemaining,
+      // Grace period info (for warning banner)
+      isGracePeriod,
+      gracePeriodEndsAt,
+      // Cancellation
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      canceledAt: subscription.canceledAt,
       limits: await getPlanLimits(req.user!.uid),
     });
   } catch (error) {
@@ -180,27 +201,52 @@ router.post('/subscription', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Free tier - no payment needed
+    // Free tier - no payment needed, use assignFreeTier service
     if (tier.priceMonthly === 0) {
-      const subscription = await prisma.organizationSubscription.upsert({
-        where: { organizationId: user.organization?.id || '' },
-        create: {
-          organizationId: user.organization!.id,
-          tierId: tier.id,
-          status: 'active',
-        },
-        update: {
-          tierId: tier.id,
-          status: 'active',
-        },
+      await assignFreeTier(user.organization!.id);
+      
+      const subscription = await prisma.organizationSubscription.findUnique({
+        where: { organizationId: user.organization!.id },
       });
 
       sendSuccess(res, {
         subscription: {
-          id: subscription.id,
+          id: subscription?.id,
           tier: tier.name,
-          status: subscription.status,
+          status: 'active',
         },
+      });
+      return;
+    }
+
+    // Check if this is user's first paid subscription (eligible for trial)
+    const existingPaidHistory = await prisma.organizationSubscription.findFirst({
+      where: {
+        organizationId: user.organization!.id,
+      },
+      include: { tier: true },
+    });
+
+    const wantsTrial = req.body.startTrial !== false; // Default to trial
+    const isFirstTimePaid = !existingPaidHistory || existingPaidHistory.tier.priceMonthly === 0;
+
+    // Start trial if first time and not explicitly declined
+    if (wantsTrial && isFirstTimePaid) {
+      await startTrial(user.organization!.id, tier.id, 14);
+      
+      const subscription = await prisma.organizationSubscription.findUnique({
+        where: { organizationId: user.organization!.id },
+        include: { tier: true },
+      });
+
+      sendSuccess(res, {
+        subscription: {
+          id: subscription?.id,
+          tier: tier.name,
+          status: 'trialing',
+          trialEndsAt: subscription?.trialEndsAt,
+        },
+        message: 'Trial started! You have 14 days of full access.',
       });
       return;
     }

@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import * as React from 'react';
 import { render } from '@react-email/components';
 import { ChangeAlertEmail } from './emails/ChangeAlertEmail';
+import { BillingEmail, BillingNotificationType } from './emails/BillingEmail';
 
 dotenv.config();
 
@@ -21,19 +22,39 @@ const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
 const resend = new Resend(RESEND_API_KEY);
 const pool = new Pool({ connectionString: DATABASE_URL });
 
-interface NotificationPayload {
+// Base notification payload shared by all types
+interface BaseNotificationPayload {
   notification_id: string;
   user_id: string;
   email: string;
   subject: string;
   summary: string;
+  risk_level?: string;
+}
+
+// Change alert specific payload
+interface ChangeAlertPayload extends BaseNotificationPayload {
+  is_billing_notification?: false;
   change_event_id: string;
   is_new_subscription?: boolean;
   has_personalization?: boolean;
-  risk_level?: string;
   monitor_name?: string;
   monitor_url?: string;
 }
+
+// Billing notification specific payload
+interface BillingNotificationPayload extends BaseNotificationPayload {
+  is_billing_notification: true;
+  billing_notification_type: BillingNotificationType;
+  change_event_id: null;
+  tier_name?: string;
+  trial_ends_at?: string;
+  grace_period_ends_at?: string;
+  previous_tier?: string;
+  reason?: string;
+}
+
+type NotificationPayload = ChangeAlertPayload | BillingNotificationPayload;
 
 async function markNotificationSent(notificationId: string): Promise<void> {
   try {
@@ -60,14 +81,44 @@ async function isAlreadySent(notificationId: string): Promise<boolean> {
   }
 }
 
+async function renderBillingEmail(data: BillingNotificationPayload): Promise<string> {
+  const emailComponent = BillingEmail({
+    notificationType: data.billing_notification_type,
+    summary: data.summary,
+    dashboardUrl: DASHBOARD_URL,
+    tierName: data.tier_name,
+    trialEndsAt: data.trial_ends_at,
+    gracePeriodEndsAt: data.grace_period_ends_at,
+    previousTier: data.previous_tier,
+    reason: data.reason,
+  });
+  return render(emailComponent as React.ReactElement);
+}
+
+async function renderChangeAlertEmail(data: ChangeAlertPayload): Promise<string> {
+  const emailComponent = ChangeAlertEmail({
+    riskLevel: (data.risk_level || 'medium') as 'low' | 'medium' | 'high' | 'critical',
+    summary: data.summary,
+    changeEventId: data.change_event_id,
+    dashboardUrl: DASHBOARD_URL,
+    isNewSubscription: data.is_new_subscription,
+    hasPersonalization: data.has_personalization,
+    monitorName: data.monitor_name,
+    monitorUrl: data.monitor_url,
+  });
+  return render(emailComponent as React.ReactElement);
+}
+
 async function processMessage(message: Message): Promise<void> {
   try {
     const data: NotificationPayload = JSON.parse(message.data.toString());
+    
+    const isBilling = data.is_billing_notification === true;
     console.log('Processing notification:', { 
       notification_id: data.notification_id,
       email: data.email,
-      is_new_subscription: data.is_new_subscription,
-      has_personalization: data.has_personalization
+      type: isBilling ? 'billing' : 'change_alert',
+      billing_type: isBilling ? (data as BillingNotificationPayload).billing_notification_type : undefined,
     });
 
     // Idempotency check - prevent duplicate emails
@@ -77,18 +128,13 @@ async function processMessage(message: Message): Promise<void> {
       return;
     }
 
-    // Render email template with context
-    const emailComponent = ChangeAlertEmail({
-      riskLevel: (data.risk_level || 'medium') as 'low' | 'medium' | 'high' | 'critical',
-      summary: data.summary,
-      changeEventId: data.change_event_id,
-      dashboardUrl: DASHBOARD_URL,
-      isNewSubscription: data.is_new_subscription,
-      hasPersonalization: data.has_personalization,
-      monitorName: data.monitor_name,
-      monitorUrl: data.monitor_url,
-    });
-    const emailHtml = await render(emailComponent as React.ReactElement);
+    // Render appropriate email template
+    let emailHtml: string;
+    if (isBilling) {
+      emailHtml = await renderBillingEmail(data as BillingNotificationPayload);
+    } else {
+      emailHtml = await renderChangeAlertEmail(data as ChangeAlertPayload);
+    }
 
     // Send email via Resend
     const { data: emailResult, error } = await resend.emails.send({
@@ -119,6 +165,7 @@ async function processMessage(message: Message): Promise<void> {
 async function main(): Promise<void> {
   console.log(`Notification Worker Starting...`);
   console.log(`Subscription: ${SUBSCRIPTION_ID}`);
+  console.log(`Supports: change_alerts, billing_notifications`);
 
   const subscription = pubsub.subscription(SUBSCRIPTION_ID);
 
@@ -146,3 +193,4 @@ async function main(): Promise<void> {
 }
 
 main().catch(console.error);
+

@@ -241,6 +241,32 @@ Comprehensive requirements organized by implementation phase.
 | Invoice history | Component | Optional |
 | Plan limit warnings in UI | UX | Required |
 
+### Backend Sync: Subscription Lifecycle (Phase 10.1)
+*Source: API - Subscription Status Lifecycle*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| **Grace Period Warning Banner** | Component | Required |
+| - Show when `isGracePeriod: true` | UX | Required |
+| - Display "Payment failed - update payment method" | UX | Required |
+| - Show grace period countdown (`gracePeriodEndsAt`) | UX | Required |
+| - Link to payment settings | UX | Required |
+| **Trial Countdown Badge** | Component | Required |
+| - Show when `isTrialing: true` | UX | Required |
+| - Display days remaining (`trialDaysRemaining`) | UX | Required |
+| - "Add payment method" CTA when trial < 3 days | UX | Required |
+| **Subscription Status Badges** | Component | Required |
+| - `active` = green | UX | Required |
+| - `trialing` = blue | UX | Required |
+| - `past_due` = orange/warning | UX | Required |
+| - `canceled` = gray | UX | Required |
+| **Downgrade Confirmation Modal** | Component | Required |
+| - Show current features that will be lost | UX | Required |
+| - Confirm before downgrade | UX | Required |
+| **Payment Method Management** | Screen | Required |
+| - Add/update payment method | Component | Required |
+| - Retry failed payment button | Component | Required |
+
 ---
 
 ## Phase 4: Enterprise & Admin (Weeks 13-16)
