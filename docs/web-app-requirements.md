@@ -79,6 +79,76 @@ Comprehensive requirements organized by implementation phase.
 
 ---
 
+## Backend Sync: API Phases 1-3 Features
+
+*Source: API Phases 1-3 implementation (all completed)*
+
+### Screens (4)
+
+| Screen | Route | Features | API Source |
+|--------|-------|----------|------------|
+| **Documents** | `/documents` | List user documents, upload button, delete | Phase 3 |
+| **Document Upload** | `/documents/new` | Drag-drop upload, file type restrictions | Phase 3 |
+| **Snapshot Viewer** | `/monitors/:id/snapshots/:sid` | View historical snapshot content | Phase 1 |
+| **Data Exports** | `/profile/exports` | List exports, download when ready | Phase 2 |
+
+### Enhanced Screens (existing screens need features)
+
+| Screen | Feature | API Source |
+|--------|---------|------------|
+| **Monitor Detail** | Pause/Resume toggle button | Phase 1 |
+| **Monitor Detail** | Snapshots list with pagination | Phase 1 |
+| **Monitor Detail** | Export history button | Phase 2 |
+| **Change Detail** | Diff viewer link (compare old vs new) | Phase 2 |
+| **Privacy Center** | Cancel pending deletion button | Phase 2 |
+
+### New Components (7)
+
+| Component | Usage | API Source |
+|-----------|-------|------------|
+| File upload (drag-drop) | Document upload, max 20MB | Phase 3 |
+| Diff viewer | Side-by-side with additions/deletions | Phase 2 |
+| Document card | Filename, type icon, size, delete | Phase 3 |
+| Export button | Trigger data export with status | Phase 2 |
+| Pause/Resume toggle | Monitor status control | Phase 1 |
+| Snapshot timeline | Historical snapshots list | Phase 1 |
+| Deletion countdown | Shows grace period remaining | Phase 2 |
+
+### Validation Requirements
+
+| Validation | Display |
+|------------|---------|
+| File types: PDF, DOCX, TXT, MD | File picker filter + error toast |
+| Max file size: 20MB | Pre-upload check + error message |
+| File upload progress | Progress bar or spinner |
+| Monitor pause confirmation | Confirm before pausing active monitor |
+
+### UX Requirements
+
+| Feature | Priority | API Source |
+|---------|----------|------------|
+| Document list with search | Required | Phase 3 |
+| Delete confirmation modal | Required | Phase 3 |
+| Export status indicator (pending/ready/expired) | Required | Phase 2 |
+| Download ready notification | Required | Phase 2 |
+| Empty state for no documents | Required | Phase 3 |
+| Pause/resume visual feedback | Required | Phase 1 |
+| Snapshot content preview | Required | Phase 1 |
+| Deletion grace period countdown | Required | Phase 2 |
+| Cancel deletion confirmation | Required | Phase 2 |
+
+### Notification Requirements
+
+| Notification | Trigger | API Source |
+|--------------|---------|------------|
+| Monitor paused | User pauses monitor | Phase 1 |
+| Monitor resumed | User resumes monitor | Phase 1 |
+| Export ready | Data export completes | Phase 2 |
+| Document processed | Vectorization complete | Phase 3 |
+| Account deletion scheduled | Deletion requested | Phase 2 |
+
+---
+
 ## Phase 3: Organization & Team (Weeks 9-12)
 
 ### Screens (6)
@@ -108,6 +178,22 @@ Comprehensive requirements organized by implementation phase.
 - [ ] Webhook test delivery
 - [ ] Member role management
 - [ ] Bulk member operations
+
+---
+
+### Backend Sync: Analytics & Reporting
+*Source: API Phase 4*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| Risk trends chart (line/area chart) | Screen | Required |
+| Reports list screen | Screen | Required |
+| Generate report modal (type, format, period) | Component | Required |
+| Report download button with loading state | Component | Required |
+| Report status badge (pending/ready/failed) | Component | Required |
+| Report expiry indicator (7-day countdown) | UX | Required |
+| PDF/CSV format selector | Form | Required |
+| Period selector (7d/30d/90d) | Form | Required |
 
 ---
 

@@ -1,0 +1,455 @@
+"""
+Reports Worker - Analytics Report Generator
+
+This worker processes pending Report requests by:
+1. Querying analytics data from PostgreSQL
+2. Generating PDF or CSV files
+3. Uploading to GCS
+4. Updating report status to 'ready'
+5. Notifying user via Pub/Sub -> notification-worker
+"""
+
+import logging
+import signal
+import time
+import json
+import csv
+import io
+from datetime import datetime, timedelta
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from google.cloud import storage, pubsub_v1
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+from config import settings
+
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"asctime": "%(asctime)s", "levelname": "%(levelname)s", "message": "%(message)s", "name": "%(name)s"}'
+)
+logger = logging.getLogger(__name__)
+
+# Graceful shutdown
+shutdown_requested = False
+
+def handle_signal(signum, frame):
+    global shutdown_requested
+    logger.info("Received termination signal. Shutting down...")
+    shutdown_requested = True
+
+signal.signal(signal.SIGTERM, handle_signal)
+signal.signal(signal.SIGINT, handle_signal)
+
+
+def get_db_connection():
+    """Create database connection."""
+    return psycopg2.connect(settings.DATABASE_URL)
+
+
+def get_storage_client():
+    """Get GCS storage client (with emulator support)."""
+    if settings.STORAGE_EMULATOR_HOST:
+        return storage.Client(
+            project=settings.GCP_PROJECT_ID,
+            _http=None
+        )
+    return storage.Client(project=settings.GCP_PROJECT_ID)
+
+
+def get_publisher():
+    """Get Pub/Sub publisher client."""
+    return pubsub_v1.PublisherClient()
+
+
+def fetch_risk_summary_data(conn, user_id: str, period_days: int) -> dict:
+    """Fetch risk summary data for the report."""
+    start_date = datetime.now() - timedelta(days=period_days)
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Get user's organization
+        cur.execute("""
+            SELECT organization_id FROM users WHERE id = %s
+        """, (user_id,))
+        user = cur.fetchone()
+        
+        if not user or not user['organization_id']:
+            return {"error": "No organization found"}
+        
+        org_id = user['organization_id']
+        
+        # Get change events with risk scores
+        cur.execute("""
+            SELECT 
+                ce.id,
+                ce.created_at,
+                ce.global_risk_score,
+                mr.url_normalized as url,
+                ce.summary
+            FROM change_events ce
+            JOIN monitored_resources mr ON ce.resource_id = mr.id
+            JOIN subscriptions s ON mr.id = s.resource_id
+            JOIN users u ON s.user_id = u.id
+            WHERE u.organization_id = %s
+            AND ce.created_at >= %s
+            ORDER BY ce.created_at DESC
+            LIMIT 100
+        """, (org_id, start_date))
+        changes = cur.fetchall()
+        
+        # Calculate statistics
+        total_changes = len(changes)
+        if total_changes == 0:
+            avg_risk = 0
+            high_risk_count = 0
+        else:
+            avg_risk = sum(c['global_risk_score'] or 0 for c in changes) / total_changes
+            high_risk_count = sum(1 for c in changes if (c['global_risk_score'] or 0) >= 7)
+        
+        return {
+            "period_days": period_days,
+            "total_changes": total_changes,
+            "avg_risk_score": round(avg_risk, 2),
+            "high_risk_count": high_risk_count,
+            "changes": changes
+        }
+
+
+def fetch_change_history_data(conn, user_id: str, period_days: int) -> dict:
+    """Fetch change history data for the report."""
+    start_date = datetime.now() - timedelta(days=period_days)
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""
+            SELECT organization_id FROM users WHERE id = %s
+        """, (user_id,))
+        user = cur.fetchone()
+        
+        if not user or not user['organization_id']:
+            return {"error": "No organization found"}
+        
+        org_id = user['organization_id']
+        
+        cur.execute("""
+            SELECT 
+                ce.id,
+                ce.created_at,
+                ce.global_risk_score,
+                ce.summary,
+                mr.url_normalized as url
+            FROM change_events ce
+            JOIN monitored_resources mr ON ce.resource_id = mr.id
+            JOIN subscriptions s ON mr.id = s.resource_id
+            JOIN users u ON s.user_id = u.id
+            WHERE u.organization_id = %s
+            AND ce.created_at >= %s
+            ORDER BY ce.created_at DESC
+        """, (org_id, start_date))
+        changes = cur.fetchall()
+        
+        return {
+            "period_days": period_days,
+            "total_changes": len(changes),
+            "changes": changes
+        }
+
+
+def generate_pdf_report(report_type: str, data: dict) -> bytes:
+    """Generate a PDF report using ReportLab."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=24, spaceAfter=20)
+    story.append(Paragraph(f"Clausync {report_type.replace('_', ' ').title()} Report", title_style))
+    story.append(Spacer(1, 12))
+    
+    # Generation date
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}", styles['Normal']))
+    story.append(Paragraph(f"Period: Last {data.get('period_days', 30)} days", styles['Normal']))
+    story.append(Spacer(1, 20))
+    
+    if report_type == "risk_summary":
+        # Summary stats
+        story.append(Paragraph("Summary", styles['Heading2']))
+        summary_data = [
+            ["Metric", "Value"],
+            ["Total Changes", str(data.get('total_changes', 0))],
+            ["Average Risk Score", str(data.get('avg_risk_score', 0))],
+            ["High Risk Changes (7+)", str(data.get('high_risk_count', 0))],
+        ]
+        t = Table(summary_data, colWidths=[3*inch, 2*inch])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 20))
+        
+        # High risk changes
+        high_risk = [c for c in data.get('changes', []) if (c.get('global_risk_score') or 0) >= 7]
+        if high_risk:
+            story.append(Paragraph("High Risk Changes", styles['Heading2']))
+            for change in high_risk[:10]:  # Limit to 10
+                story.append(Paragraph(
+                    f"<b>Score: {change.get('global_risk_score', 'N/A')}</b> - {change.get('url', 'Unknown URL')}",
+                    styles['Normal']
+                ))
+                story.append(Paragraph(
+                    f"<i>{(change.get('summary', 'No summary available'))[:200]}...</i>",
+                    styles['Normal']
+                ))
+                story.append(Spacer(1, 8))
+    
+    elif report_type == "change_history":
+        story.append(Paragraph(f"Total Changes: {data.get('total_changes', 0)}", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        # Changes table
+        changes = data.get('changes', [])[:50]  # Limit to 50
+        if changes:
+            table_data = [["Date", "Risk", "URL"]]
+            for c in changes:
+                date_str = c.get('created_at', '').strftime('%Y-%m-%d') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))[:10]
+                table_data.append([
+                    date_str,
+                    str(c.get('global_risk_score', 'N/A')),
+                    (c.get('url', 'Unknown'))[:40]
+                ])
+            
+            t = Table(table_data, colWidths=[1.2*inch, 0.8*inch, 4*inch])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            story.append(t)
+    
+    doc.build(story)
+    return buffer.getvalue()
+
+
+def generate_csv_report(report_type: str, data: dict) -> bytes:
+    """Generate a CSV report."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    
+    if report_type == "risk_summary":
+        writer.writerow(["Clausync Risk Summary Report"])
+        writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"])
+        writer.writerow([f"Period: Last {data.get('period_days', 30)} days"])
+        writer.writerow([])
+        writer.writerow(["Summary Statistics"])
+        writer.writerow(["Total Changes", data.get('total_changes', 0)])
+        writer.writerow(["Average Risk Score", data.get('avg_risk_score', 0)])
+        writer.writerow(["High Risk Changes", data.get('high_risk_count', 0)])
+        writer.writerow([])
+        writer.writerow(["Change Details"])
+        writer.writerow(["Date", "Risk Score", "URL", "Summary"])
+        for c in data.get('changes', [])[:100]:
+            date_str = c.get('created_at', '').strftime('%Y-%m-%d %H:%M') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
+            writer.writerow([
+                date_str,
+                c.get('global_risk_score', 'N/A'),
+                c.get('url', 'Unknown'),
+                (c.get('summary', ''))[:200]
+            ])
+    
+    elif report_type == "change_history":
+        writer.writerow(["Clausync Change History Report"])
+        writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"])
+        writer.writerow([f"Period: Last {data.get('period_days', 30)} days"])
+        writer.writerow([f"Total Changes: {data.get('total_changes', 0)}"])
+        writer.writerow([])
+        writer.writerow(["Date", "Risk Score", "URL", "Summary"])
+        for c in data.get('changes', []):
+            date_str = c.get('created_at', '').strftime('%Y-%m-%d %H:%M') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
+            writer.writerow([
+                date_str,
+                c.get('global_risk_score', 'N/A'),
+                c.get('url', 'Unknown'),
+                (c.get('summary', ''))[:200]
+            ])
+    
+    return buffer.getvalue().encode('utf-8')
+
+
+def upload_to_gcs(storage_client, data: bytes, user_id: str, report_id: str, format: str) -> str:
+    """Upload report to GCS and return the path."""
+    bucket = storage_client.bucket(settings.GCS_BUCKET_NAME)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    extension = 'pdf' if format == 'pdf' else 'csv'
+    blob_path = f"reports/{user_id}/{report_id}_{timestamp}.{extension}"
+    
+    blob = bucket.blob(blob_path)
+    content_type = 'application/pdf' if format == 'pdf' else 'text/csv'
+    blob.upload_from_string(data, content_type=content_type)
+    
+    logger.info(f"Uploaded report to gs://{settings.GCS_BUCKET_NAME}/{blob_path}")
+    return blob_path
+
+
+def send_notification(publisher, user_email: str, report_id: str):
+    """Publish notification for email delivery."""
+    topic_path = publisher.topic_path(
+        settings.GCP_PROJECT_ID,
+        settings.PUBSUB_TOPIC_NOTIFICATION
+    )
+    
+    message = {
+        "type": "report_ready",
+        "email": user_email,
+        "subject": "Your Clausync Report is Ready",
+        "body": f"Your analytics report is ready to download. View it in your dashboard.",
+        "report_id": report_id
+    }
+    
+    try:
+        publisher.publish(topic_path, json.dumps(message).encode('utf-8'))
+        logger.info(f"Sent notification for report {report_id}")
+    except Exception as e:
+        logger.error(f"Failed to send notification: {e}")
+
+
+def process_pending_reports():
+    """Process all pending Report records."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        storage_client = get_storage_client()
+        publisher = get_publisher()
+        
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Find pending reports
+            cur.execute("""
+                SELECT r.id, r.user_id, r.type, r.format, r.parameters,
+                       u.email as user_email
+                FROM reports r
+                JOIN users u ON r.user_id = u.id
+                WHERE r.status = 'pending'
+                ORDER BY r.created_at ASC
+                LIMIT 10
+            """)
+            pending = cur.fetchall()
+        
+        if not pending:
+            return 0
+        
+        processed = 0
+        for report in pending:
+            report_id = report['id']
+            user_id = report['user_id']
+            report_type = report['type']
+            report_format = report['format']
+            params = report['parameters'] if isinstance(report['parameters'], dict) else json.loads(report['parameters'] or '{}')
+            user_email = report['user_email']
+            
+            logger.info(f"Processing report {report_id} (type={report_type}, format={report_format})")
+            
+            try:
+                # Update status to processing
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE reports SET status = 'processing' WHERE id = %s
+                    """, (report_id,))
+                conn.commit()
+                
+                # Parse period from parameters
+                period_str = params.get('period', '30d')
+                period_days = int(period_str.replace('d', ''))
+                
+                # Fetch data based on report type
+                if report_type == 'risk_summary':
+                    data = fetch_risk_summary_data(conn, user_id, period_days)
+                elif report_type == 'change_history':
+                    data = fetch_change_history_data(conn, user_id, period_days)
+                else:
+                    data = {"error": f"Unknown report type: {report_type}"}
+                
+                if data.get('error'):
+                    raise Exception(data['error'])
+                
+                # Generate report
+                if report_format == 'pdf':
+                    report_bytes = generate_pdf_report(report_type, data)
+                else:
+                    report_bytes = generate_csv_report(report_type, data)
+                
+                # Upload to GCS
+                file_url = upload_to_gcs(storage_client, report_bytes, user_id, report_id, report_format)
+                
+                # Update report status
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE reports 
+                        SET status = 'ready', file_url = %s 
+                        WHERE id = %s
+                    """, (file_url, report_id))
+                conn.commit()
+                
+                # Send notification
+                send_notification(publisher, user_email, report_id)
+                
+                processed += 1
+                logger.info(f"Report {report_id} completed successfully")
+                
+            except Exception as e:
+                logger.error(f"Error processing report {report_id}: {e}")
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE reports SET status = 'failed' WHERE id = %s
+                    """, (report_id,))
+                conn.commit()
+        
+        return processed
+        
+    except Exception as e:
+        logger.error(f"Error in process_pending_reports: {e}")
+        return 0
+    finally:
+        if conn:
+            conn.close()
+
+
+def main():
+    """Main entry point - polls for pending reports."""
+    logger.info("Reports worker starting...")
+    logger.info(f"Database: {settings.DATABASE_URL[:30]}...")
+    logger.info(f"GCS bucket: {settings.GCS_BUCKET_NAME}")
+    
+    while not shutdown_requested:
+        try:
+            processed = process_pending_reports()
+            if processed > 0:
+                logger.info(f"Processed {processed} reports")
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}")
+        
+        # Wait before next poll
+        for _ in range(settings.RUN_INTERVAL_SECONDS):
+            if shutdown_requested:
+                break
+            time.sleep(1)
+    
+    logger.info("Reports worker stopped.")
+
+
+if __name__ == "__main__":
+    main()

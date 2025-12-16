@@ -482,19 +482,20 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 4: Analytics & Reporting (1-2 weeks)
+### Phase 4: Analytics & Reporting (1-2 weeks) ✅
 *Focus: Business intelligence features*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| Risk score trends | Analytics | `GET /analytics/risk-trends` |
-| Change frequency charts | Analytics | Enhance `/analytics/changes` |
-| Most changed resources | Analytics | `/analytics/top-resources` (exists) |
-| Dashboard metrics | Analytics | Enhance `/analytics/dashboard` |
-| Generate report | Reporting | `POST /reports/generate` |
-| List reports | Reporting | `GET /reports` |
-| Download report | Reporting | `GET /reports/:id/download` |
-| Scheduled reports | Reporting | Cron-based report generation |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| Risk score trends | Analytics | `GET /analytics/risk-trends` | ✅ |
+| Change frequency charts | Analytics | Enhance `/analytics/changes` | ⏸️ |
+| Most changed resources | Analytics | `/analytics/top-resources` (exists) | ✅ |
+| Dashboard metrics | Analytics | Enhance `/analytics/dashboard` | ✅ |
+| Generate report | Reporting | `POST /reports/generate` | ✅ |
+| List reports | Reporting | `GET /reports` | ✅ |
+| Download report | Reporting | `GET /reports/:id/download` | ✅ |
+| Scheduled reports | Reporting | Cron-based report generation | ⏸️ |
+| **Reports worker** | Worker | PDF/CSV generation | ✅ |
 
 ---
 
