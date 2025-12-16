@@ -6,9 +6,9 @@ import Link from "next/link";
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-16">
+    <section className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-32 md:pt-48 pb-16">
       {/* Powered by badge */}
-      <motion.div
+      {/* <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -18,7 +18,7 @@ export function Hero() {
           <span className="w-2 h-2 rounded-full bg-[#A17CFF] animate-pulse" />
           Powered by Gemini 2.0 Flash
         </span>
-      </motion.div>
+      </motion.div> */}
 
       {/* Main Headline */}
       <motion.h1
