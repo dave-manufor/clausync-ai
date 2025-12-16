@@ -195,6 +195,18 @@ Comprehensive requirements organized by implementation phase.
 | PDF/CSV format selector | Form | Required |
 | Period selector (7d/30d/90d) | Form | Required |
 
+### Backend Sync: Scheduled Reports
+*Source: API Phase 4 - Scheduled Reports*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| Scheduled reports list (`/reports/schedules`) | Screen | Required |
+| Create schedule modal (type, format, frequency) | Component | Required |
+| Frequency selector (weekly/monthly) | Form | Required |
+| Next run date display | UX | Required |
+| Delete schedule button with confirmation | Component | Required |
+| Active/inactive status toggle | UX | Optional |
+
 ---
 
 ## Phase 4: Enterprise & Admin (Weeks 13-16)

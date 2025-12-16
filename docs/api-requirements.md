@@ -488,18 +488,18 @@ All pending features organized into logical phases.
 | Feature | Section | Endpoint/Task | Status |
 |---------|---------|---------------|--------|
 | Risk score trends | Analytics | `GET /analytics/risk-trends` | ✅ |
-| Change frequency charts | Analytics | Enhance `/analytics/changes` | ⏸️ |
+| Change frequency charts | Analytics | `GET /analytics/changes` | ✅ |
 | Most changed resources | Analytics | `/analytics/top-resources` (exists) | ✅ |
 | Dashboard metrics | Analytics | Enhance `/analytics/dashboard` | ✅ |
 | Generate report | Reporting | `POST /reports/generate` | ✅ |
 | List reports | Reporting | `GET /reports` | ✅ |
 | Download report | Reporting | `GET /reports/:id/download` | ✅ |
-| Scheduled reports | Reporting | Cron-based report generation | ⏸️ |
-| **Reports worker** | Worker | PDF/CSV generation | ✅ |
+| Scheduled reports | Reporting | `POST/GET/DELETE /reports/schedules` | ✅ |
+| **Reports worker** | Worker | PDF/CSV generation + schedules | ✅ |
 
 ---
 
-### Phase 5: Integrations & Webhooks (1-2 weeks)
+### Phase 5: Integrations & Webhooks (1-2 weeks) ⏸️ *DEFERRED*
 *Focus: Third-party connectivity*
 
 | Feature | Section | Endpoint/Task |
