@@ -1,4 +1,9 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
+
+// Resolve routes path for both src (dev) and dist (prod)
+const routesPath = path.join(__dirname, '..', 'routes', '*.{ts,js}');
+const indexPath = path.join(__dirname, '..', 'index.{ts,js}');
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -55,9 +60,29 @@ The API supports two authentication methods:
         Error: {
           type: 'object',
           properties: {
-            error: { type: 'string' },
-            message: { type: 'string' },
-            details: { type: 'object' },
+            success: { type: 'boolean', example: false },
+            error: {
+              type: 'object',
+              properties: {
+                code: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+        SuccessResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: { type: 'object' },
+            meta: {
+              type: 'object',
+              properties: {
+                total: { type: 'integer' },
+                limit: { type: 'integer' },
+                offset: { type: 'integer' },
+              },
+            },
           },
         },
         Monitor: {
@@ -77,7 +102,7 @@ The API supports two authentication methods:
             id: { type: 'string', format: 'uuid' },
             resourceId: { type: 'string', format: 'uuid' },
             globalAiSummary: { type: 'string', nullable: true },
-            globalRiskScore: { type: 'integer', minimum: 0, maximum: 100, nullable: true },
+            globalRiskScore: { type: 'integer', minimum: 0, maximum: 10, nullable: true },
             riskKeywords: { type: 'array', items: { type: 'string' } },
             createdAt: { type: 'string', format: 'date-time' },
           },
@@ -97,10 +122,9 @@ The API supports two authentication methods:
         Pagination: {
           type: 'object',
           properties: {
-            page: { type: 'integer' },
-            limit: { type: 'integer' },
             total: { type: 'integer' },
-            pages: { type: 'integer' },
+            limit: { type: 'integer' },
+            offset: { type: 'integer' },
           },
         },
       },
@@ -110,10 +134,18 @@ The API supports two authentication methods:
       { name: 'Health', description: 'Health check endpoints' },
       { name: 'Monitors', description: 'Manage monitored resources' },
       { name: 'Changes', description: 'View change events and analysis' },
+      { name: 'Analytics', description: 'Dashboard metrics and trends' },
+      { name: 'Reports', description: 'Generate and download reports' },
       { name: 'API Keys', description: 'Manage API keys for programmatic access' },
+      { name: 'Users', description: 'User profile management' },
+      { name: 'Organizations', description: 'Organization management' },
+      { name: 'Notifications', description: 'Notification management' },
+      { name: 'Documents', description: 'User document upload for RAG' },
+      { name: 'Admin', description: 'Admin endpoints' },
     ],
   },
-  apis: ['./src/routes/*.ts', './src/index.ts'],
+  apis: [routesPath, indexPath],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+

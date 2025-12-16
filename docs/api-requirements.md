@@ -513,17 +513,19 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 6: API Infrastructure (1 week)
+### Phase 6: API Infrastructure (1 week) 🔄 *IN PROGRESS*
 *Focus: Developer experience and stability*
 
-| Feature | Section | Endpoint/Task |
-|---------|---------|---------------|
-| API versioning | DevEx | Move routes to `/api/v1/` prefix |
-| Consistent response format | DevEx | Standardize `{ success, data, meta }` |
-| Changelog endpoint | DevEx | `GET /changelog` |
-| Postman collection | DevEx | Export from OpenAPI spec |
-| SDK generation | DevEx | JavaScript/Python SDK stubs |
-| Deprecation headers | DevEx | Add `Deprecation` header support |
+| Feature | Section | Endpoint/Task | Status |
+|---------|---------|---------------|--------|
+| API versioning | DevEx | Move routes to `/api/v1/` prefix | ⏸️ |
+| Consistent response format | DevEx | `middleware/response-formatter.ts` | ✅ |
+| OpenAPI/Swagger fix | DevEx | Fixed path resolution in `swagger.ts` | ✅ |
+| OpenAPI update workflow | DevEx | `.agent/workflows/update-openapi-docs.md` | ✅ |
+| Changelog endpoint | DevEx | `GET /changelog` | ⏸️ |
+| Postman collection | DevEx | Export from OpenAPI spec | ⏸️ |
+| SDK generation | DevEx | JavaScript/Python SDK stubs | ⏸️ |
+| Deprecation headers | DevEx | Add `Deprecation` header support | ⏸️ |
 
 ---
 
