@@ -18,6 +18,7 @@ import notificationsRoutes from './routes/notifications';
 import preferencesRoutes from './routes/preferences';
 import documentsRoutes from './routes/documents';
 import reportsRoutes from './routes/reports';
+import changelogRoutes from './routes/changelog';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
@@ -75,24 +76,46 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 app.get('/openapi.json', (req, res) => res.json(swaggerSpec));
 
+// Public changelog endpoint
+app.use('/api/v1/changelog', changelogRoutes);
+
 // Combined authentication: API Key first, then Firebase token, then email verification
 const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification];
 
-// Protected Routes
-app.use('/monitors', combinedAuth, monitorRoutes);
-app.use('/changes', combinedAuth, changesRoutes);
-app.use('/api-keys', combinedAuth, apiKeysRoutes);
-app.use('/users', combinedAuth, usersRoutes);
-app.use('/organizations', combinedAuth, organizationsRoutes);
-app.use('/organizations/:id/members', combinedAuth, membersRoutes);
-app.use('/organizations/:id/webhooks', combinedAuth, webhooksRoutes);
-app.use('/analytics', combinedAuth, analyticsRoutes);
-app.use('/admin', combinedAuth, adminRoutes);
-app.use('/audit-logs', combinedAuth, auditRoutes);
-app.use('/notifications', combinedAuth, notificationsRoutes);
-app.use('/preferences', combinedAuth, preferencesRoutes);
-app.use('/documents', combinedAuth, documentsRoutes);
-app.use('/reports', combinedAuth, reportsRoutes);
+// ============ API v1 Routes (Current) ============
+app.use('/api/v1/monitors', combinedAuth, monitorRoutes);
+app.use('/api/v1/changes', combinedAuth, changesRoutes);
+app.use('/api/v1/api-keys', combinedAuth, apiKeysRoutes);
+app.use('/api/v1/users', combinedAuth, usersRoutes);
+app.use('/api/v1/organizations', combinedAuth, organizationsRoutes);
+app.use('/api/v1/organizations/:id/members', combinedAuth, membersRoutes);
+app.use('/api/v1/organizations/:id/webhooks', combinedAuth, webhooksRoutes);
+app.use('/api/v1/analytics', combinedAuth, analyticsRoutes);
+app.use('/api/v1/admin', combinedAuth, adminRoutes);
+app.use('/api/v1/audit-logs', combinedAuth, auditRoutes);
+app.use('/api/v1/notifications', combinedAuth, notificationsRoutes);
+app.use('/api/v1/preferences', combinedAuth, preferencesRoutes);
+app.use('/api/v1/documents', combinedAuth, documentsRoutes);
+app.use('/api/v1/reports', combinedAuth, reportsRoutes);
+
+// ============ Legacy Routes (Deprecated - will be removed in 6 months) ============
+// These routes are deprecated. Use /api/v1/* instead.
+import { legacyRouteDeprecation } from './middleware/deprecation';
+
+app.use('/monitors', legacyRouteDeprecation, combinedAuth, monitorRoutes);
+app.use('/changes', legacyRouteDeprecation, combinedAuth, changesRoutes);
+app.use('/api-keys', legacyRouteDeprecation, combinedAuth, apiKeysRoutes);
+app.use('/users', legacyRouteDeprecation, combinedAuth, usersRoutes);
+app.use('/organizations', legacyRouteDeprecation, combinedAuth, organizationsRoutes);
+app.use('/organizations/:id/members', legacyRouteDeprecation, combinedAuth, membersRoutes);
+app.use('/organizations/:id/webhooks', legacyRouteDeprecation, combinedAuth, webhooksRoutes);
+app.use('/analytics', legacyRouteDeprecation, combinedAuth, analyticsRoutes);
+app.use('/admin', legacyRouteDeprecation, combinedAuth, adminRoutes);
+app.use('/audit-logs', legacyRouteDeprecation, combinedAuth, auditRoutes);
+app.use('/notifications', legacyRouteDeprecation, combinedAuth, notificationsRoutes);
+app.use('/preferences', legacyRouteDeprecation, combinedAuth, preferencesRoutes);
+app.use('/documents', legacyRouteDeprecation, combinedAuth, documentsRoutes);
+app.use('/reports', legacyRouteDeprecation, combinedAuth, reportsRoutes);
 
 // 404 handler
 app.use((req, res) => {

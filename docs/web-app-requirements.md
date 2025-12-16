@@ -207,6 +207,16 @@ Comprehensive requirements organized by implementation phase.
 | Delete schedule button with confirmation | Component | Required |
 | Active/inactive status toggle | UX | Optional |
 
+### Backend Sync: API Infrastructure (Phase 6)
+*Source: API Phase 6 - Developer Experience*
+
+| Requirement | Type | Priority |
+|-------------|------|----------|
+| Update API client base URL to `/api/v1/` | Config | Required |
+| Handle deprecation response headers | UX | Optional |
+| Changelog page (`/changelog`) | Screen | Optional |
+| API version display in footer/settings | UX | Optional |
+
 ---
 
 ## Phase 4: Enterprise & Admin (Weeks 13-16)

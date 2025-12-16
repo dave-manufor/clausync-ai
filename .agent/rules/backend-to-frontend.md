@@ -1,4 +1,5 @@
 ---
+trigger: always_on
 description: How to sync backend features with web app requirements
 ---
 
@@ -11,7 +12,7 @@ After implementing backend features (API endpoints, workers, etc.), update `docs
 Ask these questions after any backend change:
 
 1. **Does this feature need user interaction?**
-   - New endpoints for listing/viewing/sorting data → needs screens or components
+   - New endpoints for listing/viewing/sorting data → needs screens, components, implementation or updates
    - File upload endpoints → needs upload UI
    - Settings endpoints → needs settings panel
 
