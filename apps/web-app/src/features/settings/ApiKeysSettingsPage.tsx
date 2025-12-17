@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Key, Copy, Trash2, Loader2, Check } from 'lucide-react'
+import { Plus, Key, Copy, Trash2, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ import {
 } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-
+import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/lib/api-hooks'
 
 const createKeySchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -50,31 +51,41 @@ const availableScopes = [
   { id: 'analytics:read', label: 'Read Analytics', description: 'Access analytics data' },
 ]
 
-// Mock data
-const existingKeys = [
-  {
-    id: '1',
-    name: 'Production API',
-    keyPrefix: 'csk_live_abc123...',
-    scopes: ['monitors:read', 'changes:read'],
-    createdAt: '2024-12-01',
-    lastUsedAt: '2 hours ago',
-  },
-  {
-    id: '2',
-    name: 'Development',
-    keyPrefix: 'csk_test_xyz789...',
-    scopes: ['monitors:read', 'monitors:write', 'changes:read', 'analytics:read'],
-    createdAt: '2024-11-15',
-    lastUsedAt: 'Never',
-  },
-]
+function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return 'Never'
+  const d = new Date(date)
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return 'Never'
+  const d = new Date(date)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+  
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins} min ago`
+  if (diffHours < 24) return `${diffHours} hours ago`
+  if (diffDays < 7) return `${diffDays} days ago`
+  return formatDate(date)
+}
 
 export function ApiKeysSettingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  const { data: apiKeysResponse, isLoading, error } = useApiKeys()
+  const createApiKey = useCreateApiKey()
+  const revokeApiKey = useRevokeApiKey()
+
+  // Extract keys from response (handles both {data: [...]} and [...] formats)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawData = apiKeysResponse as any
+  const apiKeys = rawData?.data ?? rawData ?? []
 
   const form = useForm<CreateKeyForm>({
     resolver: zodResolver(createKeySchema),
@@ -85,12 +96,25 @@ export function ApiKeysSettingsPage() {
   })
 
   async function onSubmit(data: CreateKeyForm) {
-    setIsLoading(true)
-    console.log('Create API key:', data)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
-    // Mock response
-    setNewKey('csk_live_' + Math.random().toString(36).substring(2, 15))
+    try {
+      const result = await createApiKey.mutateAsync({
+        name: data.name,
+        scopes: data.scopes,
+      })
+      // Extract the key from response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const keyData = result as any
+      const fullKey = keyData?.apiKey?.key || keyData?.plainKey || keyData?.key
+      if (fullKey) {
+        setNewKey(fullKey)
+      } else {
+        toast.error('API key created but could not retrieve the key')
+        handleDialogClose()
+      }
+    } catch (error) {
+      toast.error('Failed to create API key')
+      console.error('Create API key error:', error)
+    }
   }
 
   function handleCopy() {
@@ -108,9 +132,49 @@ export function ApiKeysSettingsPage() {
     form.reset()
   }
 
-  function revokeKey(keyId: string) {
-    console.log('Revoke key:', keyId)
-    toast.success('API key revoked')
+  async function handleRevokeKey(keyId: string, keyName: string) {
+    const confirmed = window.confirm(`Are you sure you want to revoke "${keyName}"? This action cannot be undone.`)
+    if (!confirmed) return
+    
+    try {
+      await revokeApiKey.mutateAsync(keyId)
+      toast.success('API key revoked successfully')
+    } catch (error) {
+      toast.error('Failed to revoke API key')
+      console.error('Revoke API key error:', error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <p className="text-muted-foreground">Failed to load API keys</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -198,8 +262,8 @@ export function ApiKeysSettingsPage() {
                         )}
                       />
 
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      <Button type="submit" className="w-full" disabled={createApiKey.isPending}>
+                        {createApiKey.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         Generate Key
                       </Button>
                     </form>
@@ -243,57 +307,70 @@ export function ApiKeysSettingsPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Scopes</TableHead>
-                <TableHead>Last Used</TableHead>
-                <TableHead className="w-16"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {existingKeys.map((key) => (
-                <TableRow key={key.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Key className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{key.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-sm text-muted-foreground">{key.keyPrefix}</code>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {key.scopes.slice(0, 2).map((scope) => (
-                        <Badge key={scope} variant="outline" className="text-xs">
-                          {scope.split(':')[0]}
-                        </Badge>
-                      ))}
-                      {key.scopes.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{key.scopes.length - 2}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{key.lastUsedAt}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => revokeKey(key.id)}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          {apiKeys.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No API keys yet</p>
+              <p className="text-sm">Create your first API key to get started</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead>Scopes</TableHead>
+                  <TableHead>Last Used</TableHead>
+                  <TableHead className="w-16"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {apiKeys.map((key: { id: string; name: string; keyPrefix?: string; maskedKey?: string; scopes: string[]; lastUsedAt?: string }) => (
+                  <TableRow key={key.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Key className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{key.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <code className="text-sm text-muted-foreground">
+                        {key.maskedKey || key.keyPrefix || '***'}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {key.scopes.slice(0, 2).map((scope) => (
+                          <Badge key={scope} variant="outline" className="text-xs">
+                            {scope.split(':')[0]}
+                          </Badge>
+                        ))}
+                        {key.scopes.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{key.scopes.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatRelativeTime(key.lastUsedAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRevokeKey(key.id, key.name)}
+                        disabled={revokeApiKey.isPending}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

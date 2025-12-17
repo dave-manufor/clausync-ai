@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ExternalLink,
@@ -8,49 +8,16 @@ import {
   RefreshCw,
   Settings,
   Trash2,
+  Loader2,
+  FileX,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-
-// Mock data
-const monitorData = {
-  id: '1',
-  name: 'AWS Terms of Service',
-  url: 'https://aws.amazon.com/service-terms/',
-  selector: 'main article',
-  status: 'active',
-  createdAt: 'Dec 1, 2024',
-  lastChecked: '2 hours ago',
-  checkFrequency: 'Every 6 hours',
-  totalChanges: 12,
-  riskLevel: 'high',
-}
-
-const changeHistory = [
-  {
-    id: '1',
-    date: 'Dec 10, 2024',
-    type: 'Liability Clause Modified',
-    severity: 'high',
-    summary: 'Updated indemnification language in Section 7.2',
-  },
-  {
-    id: '2',
-    date: 'Dec 5, 2024',
-    type: 'Pricing Terms Updated',
-    severity: 'medium',
-    summary: 'Added new usage-based pricing tiers',
-  },
-  {
-    id: '3',
-    date: 'Nov 28, 2024',
-    type: 'Data Processing Terms',
-    severity: 'low',
-    summary: 'Minor clarification on data retention periods',
-  },
-]
+import { Skeleton } from '@/components/ui/skeleton'
+import { useMonitor, useMonitorChanges } from '@/lib/api-hooks'
+import { cn } from '@/lib/utils'
 
 const severityColors = {
   high: 'bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20',
@@ -58,8 +25,119 @@ const severityColors = {
   low: 'bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20',
 }
 
+function getRiskLevel(score: number | null | undefined): 'low' | 'medium' | 'high' {
+  if (!score) return 'low'
+  if (score >= 7) return 'high'
+  if (score >= 4) return 'medium'
+  return 'low'
+}
+
+function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return 'Never'
+  const d = new Date(date)
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return 'Never'
+  const d = new Date(date)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+  
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins} min ago`
+  if (diffHours < 24) return `${diffHours} hours ago`
+  if (diffDays < 7) return `${diffDays} days ago`
+  return formatDate(date)
+}
+
+// Loading skeleton component
+function MonitorDetailSkeleton() {
+  return (
+    <div className="space-y-6" data-testid="monitor-loading">
+      <Skeleton className="h-4 w-32" />
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-28" />
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-10" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 404 Not Found component
+function MonitorNotFound() {
+  const navigate = useNavigate()
+  
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="p-4 rounded-full bg-destructive/10">
+        <FileX className="h-12 w-12 text-destructive" />
+      </div>
+      <h2 className="text-xl font-semibold">Monitor Not Found</h2>
+      <p className="text-muted-foreground text-center max-w-md">
+        The monitor you're looking for doesn't exist or you don't have permission to view it.
+      </p>
+      <Button variant="outline" onClick={() => navigate('/monitors')}>
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Monitors
+      </Button>
+    </div>
+  )
+}
+
 export function MonitorDetailPage() {
   const { id } = useParams()
+  
+  const { data: monitorResponse, isLoading: monitorLoading, error: monitorError } = useMonitor(id || '')
+  const { data: changes, isLoading: changesLoading } = useMonitorChanges(id || '', { limit: 5 })
+  
+  // Handle loading state
+  if (monitorLoading) {
+    return <MonitorDetailSkeleton />
+  }
+  
+  // Handle error / not found
+  if (monitorError || !monitorResponse) {
+    return <MonitorNotFound />
+  }
+  
+  // Extract monitor data from response  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawData = monitorResponse as any
+  const monitor = rawData?.data ?? rawData
+  
+  // Derive display values with safe access
+  const monitorName = monitor?.displayName || monitor?.resource?.urlNormalized || 'Unnamed Monitor'
+  const monitorUrl = monitor?.resource?.urlNormalized || ''
+  const selector = monitor?.resource?.selector || 'body'
+  const lastChecked = formatRelativeTime(monitor?.resource?.lastScrapedAt)
+  const createdAt = formatDate(monitor?.createdAt)
+  const totalChanges = changes?.length || 0
+  
+  // Use the actual latestRiskScore from the monitor, or calculate from recent change
+  const latestRiskScore = monitor?.latestRiskScore ?? 
+    (changes?.[0]?.globalRiskScore) ?? 
+    0
+  const riskLevel = getRiskLevel(latestRiskScore)
 
   return (
     <div className="space-y-6">
@@ -76,7 +154,7 @@ export function MonitorDetailPage() {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{monitorData.name}</h1>
+            <h1 className="text-2xl font-bold">{monitorName}</h1>
             <Badge
               variant="outline"
               className="bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20"
@@ -84,15 +162,17 @@ export function MonitorDetailPage() {
               Active
             </Badge>
           </div>
-          <a
-            href={monitorData.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-[#A17CFF] inline-flex items-center gap-1 mt-1"
-          >
-            {monitorData.url}
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          {monitorUrl && (
+            <a
+              href={monitorUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-[#A17CFF] inline-flex items-center gap-1 mt-1"
+            >
+              {monitorUrl}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
@@ -118,7 +198,7 @@ export function MonitorDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Last Checked</p>
-              <p className="font-medium">{monitorData.lastChecked}</p>
+              <p className="font-medium">{lastChecked}</p>
             </div>
           </CardContent>
         </Card>
@@ -129,18 +209,28 @@ export function MonitorDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Changes</p>
-              <p className="font-medium">{monitorData.totalChanges}</p>
+              <p className="font-medium">{totalChanges}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#FF4757]/10">
-              <AlertTriangle className="h-5 w-5 text-[#FF4757]" />
+            <div className={cn(
+              "p-2 rounded-lg",
+              riskLevel === 'high' && 'bg-[#FF4757]/10',
+              riskLevel === 'medium' && 'bg-[#FDCB6E]/10',
+              riskLevel === 'low' && 'bg-[#2ED573]/10'
+            )}>
+              <AlertTriangle className={cn(
+                "h-5 w-5",
+                riskLevel === 'high' && 'text-[#FF4757]',
+                riskLevel === 'medium' && 'text-[#FDCB6E]',
+                riskLevel === 'low' && 'text-[#2ED573]'
+              )} />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Risk Level</p>
-              <p className="font-medium capitalize">{monitorData.riskLevel}</p>
+              <p className="font-medium capitalize">{riskLevel}</p>
             </div>
           </CardContent>
         </Card>
@@ -151,7 +241,7 @@ export function MonitorDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Check Frequency</p>
-              <p className="font-medium">{monitorData.checkFrequency}</p>
+              <p className="font-medium">Every 6 hours</p>
             </div>
           </CardContent>
         </Card>
@@ -168,18 +258,18 @@ export function MonitorDetailPage() {
             <div>
               <p className="text-sm text-muted-foreground">CSS Selector</p>
               <code className="text-sm bg-surface-2 px-2 py-1 rounded font-mono">
-                {monitorData.selector}
+                {selector}
               </code>
             </div>
             <Separator />
             <div>
               <p className="text-sm text-muted-foreground">Created</p>
-              <p className="font-medium">{monitorData.createdAt}</p>
+              <p className="font-medium">{createdAt}</p>
             </div>
             <Separator />
             <div>
               <p className="text-sm text-muted-foreground">Status</p>
-              <p className="font-medium capitalize">{monitorData.status}</p>
+              <p className="font-medium capitalize">Active</p>
             </div>
           </CardContent>
         </Card>
@@ -195,39 +285,59 @@ export function MonitorDetailPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {changeHistory.map((change, index) => (
-                <div key={change.id}>
-                  <Link
-                    to={`/changes/${change.id}`}
-                    className="block p-4 rounded-lg border border-border hover:border-[#A17CFF]/50 hover:bg-surface-2 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{change.type}</span>
-                          <Badge
-                            variant="outline"
-                            className={severityColors[change.severity as keyof typeof severityColors]}
-                          >
-                            {change.severity}
-                          </Badge>
+            {changesLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            ) : changes && changes.length > 0 ? (
+              <div className="space-y-4">
+                {changes.map((change, index) => {
+                  const severity = getRiskLevel(change.globalRiskScore)
+                  return (
+                    <div key={change.id}>
+                      <Link
+                        to={`/changes/${change.id}`}
+                        className="block p-4 rounded-lg border border-border hover:border-[#A17CFF]/50 hover:bg-surface-2 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {change.globalAiSummary?.slice(0, 50) || 'Change detected'}
+                                {(change.globalAiSummary?.length || 0) > 50 && '...'}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={severityColors[severity]}
+                              >
+                                {severity}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Risk score: {change.globalRiskScore || 0}/10
+                            </p>
+                          </div>
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {formatDate(change.createdAt)}
+                          </span>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {change.summary}
-                        </p>
-                      </div>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">
-                        {change.date}
-                      </span>
+                      </Link>
+                      {index < changes.length - 1 && (
+                        <div className="h-4 w-px bg-border ml-6" />
+                      )}
                     </div>
-                  </Link>
-                  {index < changeHistory.length - 1 && (
-                    <div className="h-4 w-px bg-border ml-6" />
-                  )}
-                </div>
-              ))}
-            </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No changes detected yet</p>
+                <p className="text-sm">Changes will appear here once detected</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

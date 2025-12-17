@@ -41,7 +41,7 @@ Comprehensive requirements organized by implementation phase.
 - [x] API client with auth headers
 - [x] Basic error handling (401, 404, 500)
 - [x] Responsive layout (mobile-first)
-- [x] Dark/Light theme toggle
+- [x] Dark mode (default, theme switching disabled)
 
 ---
 
@@ -74,10 +74,10 @@ Comprehensive requirements organized by implementation phase.
 
 ### Functionality
 
-- [ ] React Query caching
-- [ ] Optimistic updates
-- [ ] Form validation (React Hook Form + Zod)
-- [ ] Toast notification system
+- [x] React Query caching
+- [x] Optimistic updates
+- [x] Form validation (React Hook Form + Zod)
+- [x] Toast notification system
 - [ ] Session timeout warning
 - [ ] Keyboard shortcuts (basic)
 
@@ -308,6 +308,250 @@ Comprehensive requirements organized by implementation phase.
 
 ---
 
+## Subscription-Based UI Restrictions
+
+> **Principle:** Users should NEVER learn about plan limits from an API error. The UI must proactively communicate what is and isn't available on their plan.
+
+### Plan Tier Reference
+
+| Feature | Free | Pro ($29) | Business ($99) | Enterprise ($499) |
+|---------|:----:|:---------:|:--------------:|:-----------------:|
+| Monitors | 3 | 25 | 100 | Unlimited |
+| Team Members | 1 | 3 | 10 | Unlimited |
+| Documents | 0 | 5 | 25 | Unlimited |
+| Webhooks | 0 | 1 | 10 | Unlimited |
+| API Access | ✗ | 1K/mo | 10K/mo | Unlimited |
+| Reports | ✗ | 5/mo | 25/mo | Unlimited |
+| RAG Analysis | ✗ | ✓ | ✓ | ✓ |
+| Slack/Teams | ✗ | Slack | All | All |
+| SSO/SAML | ✗ | ✗ | ✗ | ✓ |
+| Change History | 30d | 1yr | 3yr | 7yr (WORM) |
+
+### Proactive Limit Display Components
+
+#### 1. Usage Meters (Required)
+
+Show current/limit for all metered resources:
+
+| Location | Display |
+|----------|---------|
+| Dashboard | Summary cards with percentage bars |
+| Monitors List | "24/25 monitors" in header |
+| Documents List | "3/5 documents" in header |
+| Team Settings | "2/3 members" in header |
+| API Keys | "850/1,000 API requests this month" |
+
+**Visual States:**
+- `0-75%` → Default (gray/blue progress bar)
+- `75-90%` → Warning (amber progress bar + tooltip)
+- `90-99%` → Critical (red progress bar + banner)
+- `100%` → Limit reached (red badge + upgrade CTA)
+
+#### 2. Pre-Action Limit Checks (Required)
+
+Before showing creation forms, check limits and show appropriate UI:
+
+| Action | If Under Limit | If At Limit |
+|--------|----------------|-------------|
+| Add Monitor | Show form normally | Disable button + "Upgrade for more monitors" |
+| Upload Document | Show upload modal | Show upgrade modal instead |
+| Invite Team Member | Show invite form | "Your plan allows 3 members. Upgrade?" |
+| Add Webhook | Show webhook form | "Webhooks require Pro plan" |
+
+#### 3. Feature Gating Patterns
+
+**Pattern A: Disabled with Upgrade CTA**
+```
+┌────────────────────────────────────────┐
+│ [Disabled Button]  🔒 Available on Pro │
+│                    ───────────────────│
+│                    Upgrade →          │
+└────────────────────────────────────────┘
+```
+
+**Pattern B: Teaser with Blur**
+```
+┌────────────────────────────────────────┐
+│ ┌──────────────────────────────────┐  │
+│ │ [Blurred Content]                │  │
+│ │                                  │  │
+│ │    🔒 Reports require Pro plan   │  │
+│ │    [See Plans] [Learn More]      │  │
+│ └──────────────────────────────────┘  │
+└────────────────────────────────────────┘
+```
+
+**Pattern C: Feature Lock Overlay**
+```
+┌────────────────────────────────────────┐
+│ AI-Powered RAG Analysis                │
+│ ─────────────────────────────────────  │
+│ Upload your contracts and get          │
+│ personalized conflict detection.       │
+│                                         │
+│ [🔒 Unlock with Pro Plan]              │
+└────────────────────────────────────────┘
+```
+
+### Feature Availability by Page
+
+| Page | Free Tier Restrictions |
+|------|------------------------|
+| Dashboard | Hide "Export" button, hide API usage card |
+| Monitors List | Disable "Add" at limit, show counter |
+| Monitor Detail | Hide scheduled report options |
+| Changes List | Limit to 30 days (show "Upgrade for full history") |
+| Change Detail | Hide RAG insights section with Pattern C |
+| Documents | Lock entire page with Pattern B (Pro+ only) |
+| Reports | Lock page with Pattern B (Pro+ only) |
+| Webhooks | Lock creation with Pattern A (Pro+ only) |
+| API Keys | Lock page with Pattern A (Pro+ only) |
+| Team Members | Show invite form but disable at limit |
+| SSO Settings | Lock page with "Enterprise only" badge |
+
+### Upgrade Prompts (Required)
+
+#### Trigger Points
+
+| Trigger | Prompt Type |
+|---------|-------------|
+| Approach limit (90%+) | Toast notification |
+| Hit limit | Modal with comparison |
+| Access locked feature | Inline CTA |
+| Free trial ending | Persistent banner |
+| Payment failed | Full-width alert |
+
+#### Upgrade Modal Content
+
+Must include:
+1. Current plan name and price
+2. Recommended upgrade tier
+3. **Specific benefit gained** (not generic)
+4. Price difference clearly shown
+5. "Compare all plans" link
+
+**Example:**
+```
+┌──────────────────────────────────────────────────┐
+│ You've reached your monitor limit                │
+│ ──────────────────────────────────────────────   │
+│ Free plan: 3 monitors                            │
+│ ──────────────────────────────────────────────   │
+│                                                  │
+│ Upgrade to Pro for:                              │
+│ ✓ 25 monitors (22 more!)                         │
+│ ✓ Daily checks instead of weekly                 │
+│ ✓ AI-powered RAG analysis                        │
+│ ✓ Slack notifications                            │
+│                                                  │
+│ $29/month (or $290/year - save 17%)              │
+│                                                  │
+│ [Upgrade to Pro]  [Compare All Plans]            │
+└──────────────────────────────────────────────────┘
+```
+
+### API Response Handling for Limits
+
+Handle `PLAN_LIMIT_EXCEEDED` errors gracefully:
+
+```typescript
+// Expected API error format
+{
+  "error": {
+    "code": "PLAN_LIMIT_EXCEEDED",
+    "message": "Monitor limit reached (25/25)",
+    "details": {
+      "limit": 25,
+      "current": 25,
+      "limitType": "monitorLimit"
+    }
+  }
+}
+```
+
+**UI Response:**
+1. Show upgrade modal (not generic error toast)
+2. Pre-fill modal with limit type context
+3. Log event for analytics
+
+### Accessibility & Compliance Requirements
+
+#### WCAG 2.1 AA Compliance
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Disabled buttons | Use `aria-disabled` + tooltip explaining why |
+| Locked features | Include screen reader text for lock reason |
+| Progress bars | Value announced: "24 of 25 monitors used" |
+| Color coding | Never rely on color alone (use icons + text) |
+
+#### GDPR/Transparency Requirements
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Clear pricing | Always show price in user's currency |
+| No dark patterns | "Skip" option on all upgrade prompts |
+| Easy downgrade | Visible downgrade path in billing settings |
+| Data portability | Export button available on all plans |
+
+### Global UI Components for Plans
+
+#### 1. PlanBadge Component
+
+Shows user's current plan throughout the app:
+
+```
+[Free] | [Pro ✓] | [Business ★] | [Enterprise 🏢]
+```
+
+Display in: Sidebar, Profile dropdown, Settings header
+
+#### 2. UsageBar Component
+
+Reusable progress bar with automatic coloring:
+
+```tsx
+<UsageBar current={24} limit={25} label="Monitors" />
+```
+
+#### 3. FeatureGate Component
+
+Wrapper for gated features:
+
+```tsx
+<FeatureGate 
+  feature="ragAnalysis" 
+  fallback={<UpgradeTeaser feature="AI Analysis" />}
+>
+  <RAGInsightsPanel />
+</FeatureGate>
+```
+
+#### 4. UpgradePrompt Component
+
+Contextual upgrade prompts:
+
+```tsx
+<UpgradePrompt 
+  trigger="monitor_limit" 
+  currentPlan="free" 
+  targetPlan="pro" 
+/>
+```
+
+### Testing Requirements
+
+| Test Case | Expected Behavior |
+|-----------|-------------------|
+| Free user adds 4th monitor | Button disabled before click, tooltip shows "Upgrade" |
+| Pro user at 24/25 monitors | Warning banner appears |
+| User clicks locked feature | Upgrade modal opens, not error |
+| API returns PLAN_LIMIT_EXCEEDED | Upgrade modal with context, not toast |
+| Screen reader users | All limits and lock reasons announced |
+
+---
+
+
 ## Phase 8: Enterprise & Admin (Weeks 19-20)
 
 > **Goal:** Super admin capabilities, MFA, and bulk operations.
@@ -480,7 +724,7 @@ Comprehensive requirements organized by implementation phase.
 | Email verification | ✅ | Standalone route |
 | Dashboard | ✅ | Real API hooks |
 | Monitors list | ✅ | Pagination, search |
-| Monitor detail | ⚠️ | **Uses mock data - needs API hook** |
+| Monitor detail | ✅ | Uses `useMonitor` + `useMonitorChanges` |
 | Add monitor form | ✅ | Form submission works |
 | Changes list | ✅ | Filtering, real data |
 
@@ -490,11 +734,11 @@ Comprehensive requirements organized by implementation phase.
 |------|:------:|-------|
 | Change detail | ⚠️ | Partial API, some mock fallback |
 | Diff viewer component | 🔲 | Not implemented |
-| Profile settings | ⚠️ | UI complete, API not connected |
-| Security settings | ⚠️ | UI complete, API not connected |
-| API keys management | ⚠️ | UI complete, mock key generation |
-| Notification preferences | ⚠️ | UI complete, no persistence |
-| Analytics dashboard | ⚠️ | Charts render with mock data |
+| Profile settings | ✅ | `useCurrentUser` + `useUpdateProfile` |
+| Security settings | ✅ | Firebase Auth password change |
+| API keys management | ✅ | `useApiKeys` + CRUD hooks |
+| Notification preferences | ✅ | `useNotificationPreferences` hooks |
+| Analytics dashboard | ✅ | Real API with `useAnalyticsDashboard` |
 
 ### Phase 3 - Monitor Enhancements 🔲
 
@@ -554,9 +798,15 @@ Comprehensive requirements organized by implementation phase.
 
 | Issue | Location | Priority |
 |-------|----------|----------|
-| Monitor detail uses mock data | `MonitorDetailPage.tsx` | High |
-| Analytics charts disconnected | `AnalyticsPage.tsx` | High |
-| Settings don't persist | All settings pages | High |
-| Dark mode hardcoded | `App.tsx` line 55 | Medium |
 | Duplicate `severityColors` | 3 files | Low |
-| No test coverage | Entire app | Medium |
+
+---
+
+## Test Infrastructure ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Vitest + React Testing Library | ✅ | Unit tests |
+| Playwright | ✅ | E2E tests |
+| MSW (Mock Service Worker) | ✅ | API mocking |
+| Test coverage | ✅ | 14 tests passing |

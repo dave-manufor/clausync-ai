@@ -6,8 +6,10 @@ import {
   AlertTriangle,
   BarChart3,
   Calendar,
+  AlertCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -27,62 +29,122 @@ import {
   AreaChart,
 } from 'recharts'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { useAnalyticsDashboard, useChangeAnalytics, useTopResources } from '@/lib/api-hooks'
 import type { AnalyticsPeriod } from '@/types'
 
-// Mock data
-const changesTrend = [
-  { date: 'Dec 1', changes: 12, avgRisk: 4.2 },
-  { date: 'Dec 2', changes: 8, avgRisk: 3.8 },
-  { date: 'Dec 3', changes: 15, avgRisk: 5.1 },
-  { date: 'Dec 4', changes: 6, avgRisk: 3.2 },
-  { date: 'Dec 5', changes: 21, avgRisk: 6.8 },
-  { date: 'Dec 6', changes: 9, avgRisk: 4.5 },
-  { date: 'Dec 7', changes: 14, avgRisk: 5.0 },
-  { date: 'Dec 8', changes: 18, avgRisk: 5.5 },
-  { date: 'Dec 9', changes: 11, avgRisk: 4.0 },
-  { date: 'Dec 10', changes: 16, avgRisk: 4.8 },
-]
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Header skeleton */}
+      <div className="flex justify-between">
+        <div>
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-36" />
+      </div>
 
-const riskDistribution = [
-  { level: 'Low', count: 45, color: '#2ED573' },
-  { level: 'Medium', count: 28, color: '#FDCB6E' },
-  { level: 'High', count: 12, color: '#FF4757' },
-]
+      {/* Stats skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-10 w-20 mb-2" />
+              <Skeleton className="h-4 w-32" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-const topResources = [
-  { name: 'AWS Terms', changes: 24, trend: 'up' },
-  { name: 'Stripe Agreement', changes: 18, trend: 'up' },
-  { name: 'GitHub Terms', changes: 12, trend: 'down' },
-  { name: 'Google Cloud TOS', changes: 9, trend: 'stable' },
-  { name: 'Azure SLA', changes: 7, trend: 'up' },
-]
-
-const stats = [
-  {
-    label: 'Total Changes',
-    value: '156',
-    change: '+23%',
-    trend: 'up',
-    icon: Activity,
-  },
-  {
-    label: 'High Risk',
-    value: '12',
-    change: '-5%',
-    trend: 'down',
-    icon: AlertTriangle,
-  },
-  {
-    label: 'Avg Risk Score',
-    value: '4.8',
-    change: '+0.3',
-    trend: 'up',
-    icon: BarChart3,
-  },
-]
+      {/* Charts skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+          <CardContent><Skeleton className="h-[300px] w-full" /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+          <CardContent><Skeleton className="h-[300px] w-full" /></CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
 
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<AnalyticsPeriod>('30d')
+  
+  const { data: dashboardData, isLoading: dashboardLoading, error: dashboardError } = useAnalyticsDashboard(period)
+  const { data: changesData, isLoading: changesLoading } = useChangeAnalytics(period)
+  const { data: topResourcesData, isLoading: topResourcesLoading } = useTopResources(period)
+
+  // Extract data with fallbacks
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawDashboard = dashboardData as any
+  const dashboard = rawDashboard?.data ?? rawDashboard ?? {}
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawChanges = changesData as any
+  const changesTrend = rawChanges?.data ?? rawChanges ?? []
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawTopResources = topResourcesData as any
+  const topResources = rawTopResources?.data ?? rawTopResources ?? []
+
+  const isLoading = dashboardLoading || changesLoading || topResourcesLoading
+
+  if (isLoading) {
+    return <AnalyticsSkeleton />
+  }
+
+  if (dashboardError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <p className="text-muted-foreground">Failed to load analytics</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    )
+  }
+
+  // Build stats from dashboard data
+  const stats = [
+    {
+      label: 'Total Changes',
+      value: dashboard?.totalChanges?.toString() || '0',
+      change: dashboard?.changesTrend >= 0 ? `+${dashboard?.changesTrend || 0}%` : `${dashboard?.changesTrend || 0}%`,
+      trend: (dashboard?.changesTrend || 0) >= 0 ? 'up' : 'down',
+      icon: Activity,
+    },
+    {
+      label: 'High Risk',
+      value: dashboard?.highRiskCount?.toString() || '0',
+      change: dashboard?.highRiskTrend >= 0 ? `+${dashboard?.highRiskTrend || 0}%` : `${dashboard?.highRiskTrend || 0}%`,
+      trend: (dashboard?.highRiskTrend || 0) > 0 ? 'up' : 'down',
+      icon: AlertTriangle,
+    },
+    {
+      label: 'Avg Risk Score',
+      value: dashboard?.avgRiskScore?.toFixed(1) || '0.0',
+      change: dashboard?.avgRiskTrend >= 0 ? `+${(dashboard?.avgRiskTrend || 0).toFixed(1)}` : `${(dashboard?.avgRiskTrend || 0).toFixed(1)}`,
+      trend: (dashboard?.avgRiskTrend || 0) >= 0 ? 'up' : 'down',
+      icon: BarChart3,
+    },
+  ]
+
+  // Build risk distribution from dashboard
+  const riskDistribution = [
+    { level: 'Low', count: dashboard?.lowRiskCount || 0, color: '#2ED573' },
+    { level: 'Medium', count: dashboard?.mediumRiskCount || 0, color: '#FDCB6E' },
+    { level: 'High', count: dashboard?.highRiskCount || 0, color: '#FF4757' },
+  ]
+
+  // Get max changes for progress bar calculation
+  const maxChanges = Math.max(...topResources.map((r: { changeCount?: number }) => r.changeCount || 0), 1)
 
   return (
     <div className="space-y-6">
@@ -149,44 +211,50 @@ export function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={changesTrend}>
-                  <defs>
-                    <linearGradient id="colorChanges" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#A17CFF" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#A17CFF" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#ffffff40" 
-                    fontSize={12}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="#ffffff40" 
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#110C2A',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="changes"
-                    stroke="#A17CFF"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorChanges)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {changesTrend.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={changesTrend}>
+                    <defs>
+                      <linearGradient id="colorChanges" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#A17CFF" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#A17CFF" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#ffffff40" 
+                      fontSize={12}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      stroke="#ffffff40" 
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#110C2A',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="changes"
+                      stroke="#A17CFF"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorChanges)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No data available for this period
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -236,33 +304,31 @@ export function AnalyticsPage() {
           <CardTitle>Most Active Resources</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {topResources.map((resource, i) => (
-              <div key={resource.name} className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground w-6">{i + 1}</span>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium">{resource.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{resource.changes} changes</span>
-                      {resource.trend === 'up' && (
-                        <TrendingUp className="h-4 w-4 text-emerald-500" />
-                      )}
-                      {resource.trend === 'down' && (
-                        <TrendingDown className="h-4 w-4 text-red-500" />
-                      )}
+          {topResources.length > 0 ? (
+            <div className="space-y-4">
+              {topResources.slice(0, 5).map((resource: { resourceId: string; name: string; changeCount: number }, i: number) => (
+                <div key={resource.resourceId} className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground w-6">{i + 1}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{resource.name}</span>
+                      <span className="text-sm text-muted-foreground">{resource.changeCount} changes</span>
+                    </div>
+                    <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                        style={{ width: `${(resource.changeCount / maxChanges) * 100}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                      style={{ width: `${(resource.changes / 24) * 100}%` }}
-                    />
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No resource data available for this period
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Form,
   FormControl,
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { useCurrentUser, useUpdateProfile } from '@/lib/api-hooks'
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -44,25 +46,78 @@ const timezones = [
   { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
 ]
 
+function getInitials(name: string | undefined): string {
+  if (!name) return 'U'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
 export function ProfileSettingsPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const { data: userResponse, isLoading: userLoading } = useCurrentUser()
+  const updateProfile = useUpdateProfile()
+
+  // Extract user data from response (handles both {data: User} and User formats)
+  const user = userResponse && 'data' in userResponse ? userResponse.data : userResponse
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      name: 'John Doe',
-      email: 'john@clausync.ai',
+      name: '',
+      email: '',
       timezone: 'UTC',
     },
   })
 
+  // Update form when user data loads
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name || '',
+        email: user.email || '',
+        timezone: 'UTC', // API doesn't return timezone yet
+      })
+    }
+  }, [user, form])
+
   async function onSubmit(data: ProfileForm) {
-    setIsLoading(true)
-    // TODO: Call useUpdateProfile mutation
-    console.log('Update profile:', data)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
-    toast.success('Profile updated successfully')
+    try {
+      await updateProfile.mutateAsync({ name: data.name })
+      toast.success('Profile updated successfully')
+    } catch (error) {
+      toast.error('Failed to update profile. Please try again.')
+      console.error('Profile update error:', error)
+    }
+  }
+
+  if (userLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <Skeleton className="h-20 w-20 rounded-full" />
+              <Skeleton className="h-9 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -79,8 +134,10 @@ export function ProfileSettingsPage() {
           <div className="flex items-center gap-6">
             <div className="relative group">
               <Avatar className="h-20 w-20 ring-2 ring-border">
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback className="text-lg bg-primary/20 text-primary">JD</AvatarFallback>
+                <AvatarImage src="" />
+                <AvatarFallback className="text-lg bg-primary/20 text-primary">
+                  {getInitials(user?.name)}
+                </AvatarFallback>
               </Avatar>
               <button className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                 <Camera className="h-5 w-5 text-white" />
@@ -131,10 +188,16 @@ export function ProfileSettingsPage() {
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="john@example.com" {...field} />
+                        <Input 
+                          type="email" 
+                          placeholder="john@example.com" 
+                          {...field} 
+                          disabled 
+                          className="bg-muted"
+                        />
                       </FormControl>
                       <FormDescription>
-                        Changing your email will require verification
+                        Email is managed through your login provider
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -171,8 +234,8 @@ export function ProfileSettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                <Button type="submit" disabled={updateProfile.isPending}>
+                  {updateProfile.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Save Changes
                 </Button>
               </div>

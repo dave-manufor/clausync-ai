@@ -40,21 +40,21 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Light mode overrides */
+/* Light mode overrides - Premium purple palette */
 html.light {
-  --color-app-bg: #F8FAFC;
+  --color-app-bg: #F8F6FF; /* Soft violet background */
   --color-surface-1: #FFFFFF;
-  --color-surface-2: #F1F5F9;
+  --color-surface-2: #F0EDFA; /* Light lavender */
   --color-border-subtle: rgba(88, 20, 186, 0.15);
   --color-primary-action: #5814BA;
   --color-accent-glow: #7C3AED;
 
-  --color-text-main: #0F172A;
-  --color-text-body: #334155;
-  --color-text-muted: #64748B;
+  --color-text-main: #1A103A; /* Deep violet-black */
+  --color-text-body: #362D52; /* Rich purple-gray */
+  --color-text-muted: #5E5481; /* Muted violet */
 
-  --shadow-card: 0 4px 20px rgba(0,0,0, 0.08);
-  --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.2);
+  --shadow-card: 0 4px 24px rgba(88, 20, 186, 0.08), 0 1px 3px rgba(88, 20, 186, 0.04);
+  --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.12);
 
   color-scheme: light;
 }
