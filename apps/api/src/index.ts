@@ -25,6 +25,7 @@ import paystackWebhookRoutes from './routes/paystack-webhook';
 import { authenticate, requireEmailVerification } from './middleware/auth';
 import { authenticateApiKey } from './middleware/api-key';
 import { conditionalRateLimiter } from './middleware/rate-limiter';
+import { ensureUserProvisioned } from './middleware/user-provisioning';
 import { swaggerSpec } from './config/swagger';
 import trackApiUsage from './middleware/usage-tracker';
 import prisma from './db/client';
@@ -88,8 +89,8 @@ app.use('/webhooks/paystack', express.raw({ type: 'application/json' }), paystac
 
 // Note: Cron tasks moved to billing-lifecycle-worker (HTTP triggered by Cloud Scheduler)
 
-// Combined authentication: API Key first, then Firebase token, then email verification
-const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification];
+// Combined authentication: API Key first, then Firebase token, email verification, then user provisioning
+const combinedAuth = [authenticateApiKey, authenticate, requireEmailVerification, ensureUserProvisioned];
 
 // ============ API v1 Routes (Current) ============
 // Track API usage for billing (runs async, non-blocking)

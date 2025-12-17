@@ -234,8 +234,9 @@ router.post('/me/export', async (req: Request, res: Response): Promise<void> => 
       },
     });
 
-    // TODO: Trigger background job to generate export
-    // In production, publish to a queue for async processing
+    // Publish to data-export-worker via Pub/Sub
+    const { publishMessage } = await import('../services/pubsub');
+    await publishMessage('cmd.generate_export', { export_id: dataExport.id });
 
     // Audit log
     await prisma.auditLog.create({

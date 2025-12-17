@@ -6,6 +6,8 @@ Comprehensive requirements organized by implementation phase.
 
 ## Phase 1: MVP Foundation (Weeks 1-4)
 
+> **Goal:** Core authentication, navigation, and basic monitor management.
+
 ### Screens (8)
 
 | Screen | Route | Features |
@@ -45,6 +47,8 @@ Comprehensive requirements organized by implementation phase.
 
 ## Phase 2: Core Features (Weeks 5-8)
 
+> **Goal:** User settings, analytics basics, and improved change viewing.
+
 ### Screens (7)
 
 | Screen | Route | Features |
@@ -79,40 +83,40 @@ Comprehensive requirements organized by implementation phase.
 
 ---
 
-## Backend Sync: API Phases 1-3 Features
+## Phase 3: Monitor Enhancements (Weeks 9-10)
 
-*Source: API Phases 1-3 implementation (all completed)*
+> **Goal:** Advanced monitor features including snapshots, documents, and export capabilities.
 
-### Screens (4)
+### New Screens (4)
 
 | Screen | Route | Features | API Source |
 |--------|-------|----------|------------|
-| **Documents** | `/documents` | List user documents, upload button, delete | Phase 3 |
-| **Document Upload** | `/documents/new` | Drag-drop upload, file type restrictions | Phase 3 |
-| **Snapshot Viewer** | `/monitors/:id/snapshots/:sid` | View historical snapshot content | Phase 1 |
-| **Data Exports** | `/profile/exports` | List exports, download when ready | Phase 2 |
+| **Documents** | `/documents` | List user documents, upload button, delete | API Phase 3 |
+| **Document Upload** | `/documents/new` | Drag-drop upload, file type restrictions | API Phase 3 |
+| **Snapshot Viewer** | `/monitors/:id/snapshots/:sid` | View historical snapshot content | API Phase 1 |
+| **Data Exports** | `/profile/exports` | List exports, download when ready | API Phase 2 |
 
-### Enhanced Screens (existing screens need features)
+### Screen Enhancements (Existing)
 
 | Screen | Feature | API Source |
 |--------|---------|------------|
-| **Monitor Detail** | Pause/Resume toggle button | Phase 1 |
-| **Monitor Detail** | Snapshots list with pagination | Phase 1 |
-| **Monitor Detail** | Export history button | Phase 2 |
-| **Change Detail** | Diff viewer link (compare old vs new) | Phase 2 |
-| **Privacy Center** | Cancel pending deletion button | Phase 2 |
+| **Monitor Detail** | Pause/Resume toggle button | API Phase 1 |
+| **Monitor Detail** | Snapshots list with pagination | API Phase 1 |
+| **Monitor Detail** | Export history button | API Phase 2 |
+| **Change Detail** | Diff viewer link (compare old vs new) | API Phase 2 |
+| **Privacy Center** | Cancel pending deletion button | API Phase 2 |
 
 ### New Components (7)
 
 | Component | Usage | API Source |
 |-----------|-------|------------|
-| File upload (drag-drop) | Document upload, max 20MB | Phase 3 |
-| Diff viewer | Side-by-side with additions/deletions | Phase 2 |
-| Document card | Filename, type icon, size, delete | Phase 3 |
-| Export button | Trigger data export with status | Phase 2 |
-| Pause/Resume toggle | Monitor status control | Phase 1 |
-| Snapshot timeline | Historical snapshots list | Phase 1 |
-| Deletion countdown | Shows grace period remaining | Phase 2 |
+| File upload (drag-drop) | Document upload, max 20MB | API Phase 3 |
+| Diff viewer | Side-by-side with additions/deletions | API Phase 2 |
+| Document card | Filename, type icon, size, delete | API Phase 3 |
+| Export button | Trigger data export with status | API Phase 2 |
+| Pause/Resume toggle | Monitor status control | API Phase 1 |
+| Snapshot timeline | Historical snapshots list | API Phase 1 |
+| Deletion countdown | Shows grace period remaining | API Phase 2 |
 
 ### Validation Requirements
 
@@ -125,33 +129,81 @@ Comprehensive requirements organized by implementation phase.
 
 ### UX Requirements
 
-| Feature | Priority | API Source |
-|---------|----------|------------|
-| Document list with search | Required | Phase 3 |
-| Delete confirmation modal | Required | Phase 3 |
-| Export status indicator (pending/ready/expired) | Required | Phase 2 |
-| Download ready notification | Required | Phase 2 |
-| Empty state for no documents | Required | Phase 3 |
-| Pause/resume visual feedback | Required | Phase 1 |
-| Snapshot content preview | Required | Phase 1 |
-| Deletion grace period countdown | Required | Phase 2 |
-| Cancel deletion confirmation | Required | Phase 2 |
+| Feature | Priority |
+|---------|----------|
+| Document list with search | Required |
+| Delete confirmation modal | Required |
+| Export status indicator (pending/ready/expired) | Required |
+| Download ready notification | Required |
+| Empty state for no documents | Required |
+| Pause/resume visual feedback | Required |
+| Snapshot content preview | Required |
+| Deletion grace period countdown | Required |
+| Cancel deletion confirmation | Required |
 
-### Notification Requirements
+### Notifications
 
-| Notification | Trigger | API Source |
-|--------------|---------|------------|
-| Monitor paused | User pauses monitor | Phase 1 |
-| Monitor resumed | User resumes monitor | Phase 1 |
-| Export ready | Data export completes | Phase 2 |
-| Document processed | Vectorization complete | Phase 3 |
-| Account deletion scheduled | Deletion requested | Phase 2 |
+| Notification | Trigger |
+|--------------|---------|
+| Monitor paused | User pauses monitor |
+| Monitor resumed | User resumes monitor |
+| Export ready | Data export completes |
+| Document processed | Vectorization complete |
+| Account deletion scheduled | Deletion requested |
 
 ---
 
-## Phase 3: Organization & Team (Weeks 9-12)
+## Phase 4: Analytics & Reporting (Weeks 11-12)
 
-### Screens (6)
+> **Goal:** Data visualization, reports generation, and scheduled reporting.
+
+### New Screens (2)
+
+| Screen | Route | Features |
+|--------|-------|----------|
+| **Reports List** | `/reports` | List all generated reports, status badges |
+| **Scheduled Reports** | `/reports/schedules` | List schedules, create/delete |
+
+### Screen Enhancements
+
+| Screen | Feature |
+|--------|---------|
+| **Analytics** | Risk trends chart (line/area) |
+| **Analytics** | Period selector (7d/30d/90d) |
+
+### New Components (5)
+
+| Component | Usage |
+|-----------|-------|
+| Generate report modal | Type, format, period selection |
+| Report download button | With loading state |
+| Report status badge | pending/ready/failed |
+| Report expiry indicator | 7-day countdown |
+| Create schedule modal | Type, format, frequency |
+
+### Form Elements
+
+| Element | Options |
+|---------|---------|
+| PDF/CSV format selector | Radio or dropdown |
+| Period selector | 7d, 30d, 90d |
+| Frequency selector | Weekly, Monthly |
+
+### UX Requirements
+
+| Feature | Priority |
+|---------|----------|
+| Next run date display | Required |
+| Delete schedule button with confirmation | Required |
+| Active/inactive status toggle | Optional |
+
+---
+
+## Phase 5: Organization & Team (Weeks 13-14)
+
+> **Goal:** Multi-user organization management, invitations, and webhooks.
+
+### New Screens (6)
 
 | Screen | Route | Features |
 |--------|-------|----------|
@@ -181,97 +233,86 @@ Comprehensive requirements organized by implementation phase.
 
 ---
 
-### Backend Sync: Analytics & Reporting
-*Source: API Phase 4*
+## Phase 6: Session & API Management (Weeks 15-16)
 
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| Risk trends chart (line/area chart) | Screen | Required |
-| Reports list screen | Screen | Required |
-| Generate report modal (type, format, period) | Component | Required |
-| Report download button with loading state | Component | Required |
-| Report status badge (pending/ready/failed) | Component | Required |
-| Report expiry indicator (7-day countdown) | UX | Required |
-| PDF/CSV format selector | Form | Required |
-| Period selector (7d/30d/90d) | Form | Required |
+> **Goal:** Enhanced security features and developer experience.
 
-### Backend Sync: Scheduled Reports
-*Source: API Phase 4 - Scheduled Reports*
+### New Screens (2)
 
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| Scheduled reports list (`/reports/schedules`) | Screen | Required |
-| Create schedule modal (type, format, frequency) | Component | Required |
-| Frequency selector (weekly/monthly) | Form | Required |
-| Next run date display | UX | Required |
-| Delete schedule button with confirmation | Component | Required |
-| Active/inactive status toggle | UX | Optional |
+| Screen | Route | Features |
+|--------|-------|----------|
+| **Active Sessions** | `/settings/sessions` | Device info, IP, SSO provider, revoke |
+| **Changelog** | `/changelog` | API version history (optional) |
 
-### Backend Sync: API Infrastructure (Phase 6)
-*Source: API Phase 6 - Developer Experience*
+### Session Management Components
 
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| Update API client base URL to `/api/v1/` | Config | Required |
-| Handle deprecation response headers | UX | Optional |
-| Changelog page (`/changelog`) | Screen | Optional |
-| API version display in footer/settings | UX | Optional |
+| Component | Usage |
+|-----------|-------|
+| Session list | Device, IP, SSO provider display |
+| Revoke session button | Individual session termination |
+| Revoke all sessions button | Terminate all except current |
+| Current session indicator | Highlight active session |
 
-### Backend Sync: Session Management (Phase 7)
-*Source: API Phase 7 - Enhanced Auth & Security*
+### API Infrastructure
 
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| Active sessions list (`/settings/sessions`) | Screen | Required |
-| Device info, IP, SSO provider display | UX | Required |
-| Revoke session button | Component | Required |
-| "Revoke all sessions" button | Component | Required |
-| Current session indicator | UX | Required |
-
-### Backend Sync: Billing & Subscriptions (Phase 10)
-*Source: API Phase 10 - Billing Integration*
-
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| Subscription tiers list (`/pricing`) | Screen | Required |
-| Current subscription status (`/settings/billing`) | Screen | Required |
-| Subscribe/upgrade flow | Component | Required |
-| Cancel subscription with confirmation | Component | Required |
-| Usage meters (monitors, documents, team) | Component | Required |
-| Invoice history | Component | Optional |
-| Plan limit warnings in UI | UX | Required |
-
-### Backend Sync: Subscription Lifecycle (Phase 10.1)
-*Source: API - Subscription Status Lifecycle*
-
-| Requirement | Type | Priority |
-|-------------|------|----------|
-| **Grace Period Warning Banner** | Component | Required |
-| - Show when `isGracePeriod: true` | UX | Required |
-| - Display "Payment failed - update payment method" | UX | Required |
-| - Show grace period countdown (`gracePeriodEndsAt`) | UX | Required |
-| - Link to payment settings | UX | Required |
-| **Trial Countdown Badge** | Component | Required |
-| - Show when `isTrialing: true` | UX | Required |
-| - Display days remaining (`trialDaysRemaining`) | UX | Required |
-| - "Add payment method" CTA when trial < 3 days | UX | Required |
-| **Subscription Status Badges** | Component | Required |
-| - `active` = green | UX | Required |
-| - `trialing` = blue | UX | Required |
-| - `past_due` = orange/warning | UX | Required |
-| - `canceled` = gray | UX | Required |
-| **Downgrade Confirmation Modal** | Component | Required |
-| - Show current features that will be lost | UX | Required |
-| - Confirm before downgrade | UX | Required |
-| **Payment Method Management** | Screen | Required |
-| - Add/update payment method | Component | Required |
-| - Retry failed payment button | Component | Required |
+| Requirement | Priority |
+|-------------|----------|
+| Update API client base URL to `/api/v1/` | Required |
+| Handle deprecation response headers | Optional |
+| API version display in footer/settings | Optional |
 
 ---
 
-## Phase 4: Enterprise & Admin (Weeks 13-16)
+## Phase 7: Billing & Subscriptions (Weeks 17-18)
 
-### Screens (6)
+> **Goal:** Payment integration, subscription management, and usage tracking.
+
+### New Screens (3)
+
+| Screen | Route | Features |
+|--------|-------|----------|
+| **Pricing** | `/pricing` | Subscription tiers list, compare features |
+| **Billing Settings** | `/settings/billing` | Current subscription, usage, invoices |
+| **Payment Method** | `/settings/billing/payment` | Add/update payment method |
+
+### Subscription Components
+
+| Component | Usage |
+|-----------|-------|
+| Subscribe/upgrade flow | Tier selection + checkout |
+| Cancel subscription modal | With confirmation |
+| Usage meters | Monitors, documents, team members |
+| Invoice history | Past payments list |
+| Plan limit warnings | Show when approaching limits |
+
+### Subscription Lifecycle Components
+
+| Component | Usage |
+|-----------|-------|
+| **Grace Period Warning Banner** | Payment failed - update payment method |
+| Grace period countdown | Display `gracePeriodEndsAt` |
+| Link to payment settings | Quick action CTA |
+| **Trial Countdown Badge** | Days remaining (`trialDaysRemaining`) |
+| Trial CTA | "Add payment method" when trial < 3 days |
+| **Subscription Status Badges** | `active` (green), `trialing` (blue), `past_due` (orange), `canceled` (gray) |
+| **Downgrade Confirmation Modal** | Show features that will be lost |
+| Retry failed payment button | Quick retry action |
+
+### Display Logic
+
+| Condition | Action |
+|-----------|--------|
+| `isGracePeriod: true` | Show grace period banner |
+| `isTrialing: true` | Show trial countdown badge |
+| `trialDaysRemaining < 3` | Show "Add payment method" CTA |
+
+---
+
+## Phase 8: Enterprise & Admin (Weeks 19-20)
+
+> **Goal:** Super admin capabilities, MFA, and bulk operations.
+
+### New Screens (6)
 
 | Screen | Route | Features |
 |--------|-------|----------|
@@ -300,9 +341,11 @@ Comprehensive requirements organized by implementation phase.
 
 ---
 
-## Phase 5: Compliance & Polish (Weeks 17-20)
+## Phase 9: Compliance & Polish (Weeks 21-22)
 
-### Screens (4)
+> **Goal:** GDPR/SOC 2 compliance, accessibility, and performance optimization.
+
+### New Screens (4)
 
 | Screen | Route | Features |
 |--------|-------|----------|
@@ -356,25 +399,37 @@ Comprehensive requirements organized by implementation phase.
 │   ├── / (Dashboard)
 │   ├── /monitors
 │   │   ├── /monitors/:id
+│   │   │   └── /monitors/:id/snapshots/:sid
 │   │   ├── /monitors/new
 │   │   └── /monitors/import
 │   ├── /changes
 │   │   └── /changes/:id
+│   │       └── /changes/:id/diff
+│   ├── /documents
+│   │   └── /documents/new
+│   ├── /reports
+│   │   └── /reports/schedules
 │   └── /analytics
 │
-├── Profile
+├── Settings
 │   ├── /profile
 │   ├── /profile/security
 │   ├── /profile/api-keys
 │   ├── /profile/notifications
 │   ├── /profile/mfa
-│   └── /profile/privacy
+│   ├── /profile/privacy
+│   ├── /profile/exports
+│   ├── /settings/sessions
+│   └── /settings/billing
+│       └── /settings/billing/payment
 │
 ├── Organization
 │   ├── /org/settings
 │   ├── /org/members
+│   ├── /org/invite
 │   ├── /org/invitations
 │   └── /org/webhooks
+│       └── /org/webhooks/new
 │
 ├── Admin (super_admin only)
 │   ├── /admin
@@ -382,22 +437,126 @@ Comprehensive requirements organized by implementation phase.
 │   ├── /admin/organizations
 │   └── /admin/audit-logs
 │
+├── Pricing
+│   └── /pricing
+│
 └── Legal
     ├── /privacy
     ├── /terms
-    └── /cookies
+    ├── /cookies
+    └── /changelog
 ```
 
 ---
 
 ## Summary by Phase
 
-| Phase | Screens | Components | Weeks |
-|-------|---------|------------|-------|
-| **1. MVP** | 8 | 8 | 1-4 |
-| **2. Core** | 7 | 6 | 5-8 |
-| **3. Team** | 6 | 4 | 9-12 |
-| **4. Enterprise** | 6 | 3 | 13-16 |
-| **5. Compliance** | 4 | - | 17-20 |
-| **Total** | **31** | **21** | **20 weeks** |
+| Phase | Focus | Screens | Components | Weeks |
+|-------|-------|---------|------------|-------|
+| **1. MVP Foundation** | Auth, Navigation, Basic Monitors | 8 | 8 | 1-4 |
+| **2. Core Features** | Settings, Analytics Basics | 7 | 6 | 5-8 |
+| **3. Monitor Enhancements** | Snapshots, Documents, Exports | 4 | 7 | 9-10 |
+| **4. Analytics & Reporting** | Charts, Reports, Schedules | 2 | 5 | 11-12 |
+| **5. Organization & Team** | Members, Invites, Webhooks | 6 | 4 | 13-14 |
+| **6. Session & API** | Security, Developer Experience | 2 | 4 | 15-16 |
+| **7. Billing & Subscriptions** | Payments, Usage Tracking | 3 | 10 | 17-18 |
+| **8. Enterprise & Admin** | Admin Tools, MFA, Bulk Ops | 6 | 3 | 19-20 |
+| **9. Compliance & Polish** | GDPR, SOC 2, A11y, Performance | 4 | - | 21-22 |
+| **Total** | | **42** | **47** | **22 weeks** |
 
+---
+
+## Implementation Checklist
+
+> Legend: ✅ = Complete with API | ⚠️ = UI only (mock data) | 🔲 = Not started
+
+### Phase 1 - MVP Foundation
+
+| Item | Status | Notes |
+|------|:------:|-------|
+| Login screen | ✅ | Firebase Auth |
+| Register screen | ✅ | Email verification flow |
+| Password reset flow | ✅ | Token-based |
+| Email verification | ✅ | Standalone route |
+| Dashboard | ✅ | Real API hooks |
+| Monitors list | ✅ | Pagination, search |
+| Monitor detail | ⚠️ | **Uses mock data - needs API hook** |
+| Add monitor form | ✅ | Form submission works |
+| Changes list | ✅ | Filtering, real data |
+
+### Phase 2 - Core Features
+
+| Item | Status | Notes |
+|------|:------:|-------|
+| Change detail | ⚠️ | Partial API, some mock fallback |
+| Diff viewer component | 🔲 | Not implemented |
+| Profile settings | ⚠️ | UI complete, API not connected |
+| Security settings | ⚠️ | UI complete, API not connected |
+| API keys management | ⚠️ | UI complete, mock key generation |
+| Notification preferences | ⚠️ | UI complete, no persistence |
+| Analytics dashboard | ⚠️ | Charts render with mock data |
+
+### Phase 3 - Monitor Enhancements 🔲
+
+- [ ] Documents list
+- [ ] Document upload
+- [ ] Snapshot viewer
+- [ ] Data exports
+- [ ] Monitor pause/resume
+- [ ] Snapshot timeline
+
+### Phase 4 - Analytics & Reporting 🔲
+
+- [ ] Reports list
+- [ ] Generate report modal
+- [ ] Scheduled reports
+- [ ] Risk trends chart (real data)
+
+### Phase 5 - Organization & Team 🔲
+
+- [ ] Org settings
+- [ ] Member management
+- [ ] Invite flow
+- [ ] Webhooks
+
+### Phase 6 - Session & API 🔲
+
+- [ ] Active sessions
+- [ ] API versioning support
+
+### Phase 7 - Billing & Subscriptions 🔲
+
+- [ ] Pricing page
+- [ ] Billing settings
+- [ ] Subscription lifecycle UI
+- [ ] Payment method management
+
+### Phase 8 - Enterprise & Admin 🔲
+
+- [ ] Admin dashboard
+- [ ] User management
+- [ ] Org management
+- [ ] Audit logs
+- [ ] MFA setup
+- [ ] Bulk import
+
+### Phase 9 - Compliance & Polish 🔲
+
+- [ ] Privacy center
+- [ ] Cookie management
+- [ ] Legal pages
+- [ ] Accessibility audit
+- [ ] Performance optimization
+
+---
+
+## Known Issues & Technical Debt
+
+| Issue | Location | Priority |
+|-------|----------|----------|
+| Monitor detail uses mock data | `MonitorDetailPage.tsx` | High |
+| Analytics charts disconnected | `AnalyticsPage.tsx` | High |
+| Settings don't persist | All settings pages | High |
+| Dark mode hardcoded | `App.tsx` line 55 | Medium |
+| Duplicate `severityColors` | 3 files | Low |
+| No test coverage | Entire app | Medium |

@@ -328,8 +328,8 @@ def send_notification(publisher, user_email: str, report_id: str):
         logger.error(f"Failed to send notification: {e}")
 
 
-def process_pending_reports():
-    """Process all pending Report records."""
+def process_report_by_id(report_id: str) -> bool:
+    """Process a specific report by ID. Returns True on success."""
     conn = None
     try:
         conn = get_db_connection()
@@ -337,119 +337,163 @@ def process_pending_reports():
         publisher = get_publisher()
         
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Find pending reports
+            # Find the report
             cur.execute("""
-                SELECT r.id, r.user_id, r.type, r.format, r.parameters,
+                SELECT r.id, r.user_id, r.type, r.format, r.parameters, r.status,
                        u.email as user_email
                 FROM reports r
                 JOIN users u ON r.user_id = u.id
-                WHERE r.status = 'pending'
-                ORDER BY r.created_at ASC
-                LIMIT 10
-            """)
-            pending = cur.fetchall()
+                WHERE r.id = %s
+            """, (report_id,))
+            report = cur.fetchone()
         
-        if not pending:
-            return 0
+        if not report:
+            logger.error(f"Report not found: {report_id}")
+            return True  # Ack to prevent retry loop
         
-        processed = 0
-        for report in pending:
-            report_id = report['id']
-            user_id = report['user_id']
-            report_type = report['type']
-            report_format = report['format']
-            params = report['parameters'] if isinstance(report['parameters'], dict) else json.loads(report['parameters'] or '{}')
-            user_email = report['user_email']
-            
-            logger.info(f"Processing report {report_id} (type={report_type}, format={report_format})")
-            
+        if report['status'] not in ('pending', 'processing'):
+            logger.info(f"Report {report_id} already processed (status: {report['status']})")
+            return True
+        
+        user_id = report['user_id']
+        report_type = report['type']
+        report_format = report['format']
+        params = report['parameters'] if isinstance(report['parameters'], dict) else json.loads(report['parameters'] or '{}')
+        user_email = report['user_email']
+        
+        logger.info(f"Processing report {report_id} (type={report_type}, format={report_format})")
+        
+        # Update status to processing
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE reports SET status = 'processing' WHERE id = %s
+            """, (report_id,))
+        conn.commit()
+        
+        # Parse period from parameters
+        period_str = params.get('period', '30d')
+        period_days = int(period_str.replace('d', ''))
+        
+        # Fetch data based on report type
+        if report_type == 'risk_summary':
+            data = fetch_risk_summary_data(conn, user_id, period_days)
+        elif report_type == 'change_history':
+            data = fetch_change_history_data(conn, user_id, period_days)
+        else:
+            data = {"error": f"Unknown report type: {report_type}"}
+        
+        if data.get('error'):
+            raise Exception(data['error'])
+        
+        # Generate report
+        if report_format == 'pdf':
+            report_bytes = generate_pdf_report(report_type, data)
+        else:
+            report_bytes = generate_csv_report(report_type, data)
+        
+        # Upload to GCS
+        file_url = upload_to_gcs(storage_client, report_bytes, user_id, report_id, report_format)
+        
+        # Update report status
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE reports 
+                SET status = 'ready', file_url = %s 
+                WHERE id = %s
+            """, (file_url, report_id))
+        conn.commit()
+        
+        # Send notification
+        send_notification(publisher, user_email, report_id)
+        
+        logger.info(f"Report {report_id} completed successfully")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error processing report {report_id}: {e}")
+        if conn:
             try:
-                # Update status to processing
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE reports SET status = 'processing' WHERE id = %s
-                    """, (report_id,))
-                conn.commit()
-                
-                # Parse period from parameters
-                period_str = params.get('period', '30d')
-                period_days = int(period_str.replace('d', ''))
-                
-                # Fetch data based on report type
-                if report_type == 'risk_summary':
-                    data = fetch_risk_summary_data(conn, user_id, period_days)
-                elif report_type == 'change_history':
-                    data = fetch_change_history_data(conn, user_id, period_days)
-                else:
-                    data = {"error": f"Unknown report type: {report_type}"}
-                
-                if data.get('error'):
-                    raise Exception(data['error'])
-                
-                # Generate report
-                if report_format == 'pdf':
-                    report_bytes = generate_pdf_report(report_type, data)
-                else:
-                    report_bytes = generate_csv_report(report_type, data)
-                
-                # Upload to GCS
-                file_url = upload_to_gcs(storage_client, report_bytes, user_id, report_id, report_format)
-                
-                # Update report status
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE reports 
-                        SET status = 'ready', file_url = %s 
-                        WHERE id = %s
-                    """, (file_url, report_id))
-                conn.commit()
-                
-                # Send notification
-                send_notification(publisher, user_email, report_id)
-                
-                processed += 1
-                logger.info(f"Report {report_id} completed successfully")
-                
-            except Exception as e:
-                logger.error(f"Error processing report {report_id}: {e}")
                 with conn.cursor() as cur:
                     cur.execute("""
                         UPDATE reports SET status = 'failed' WHERE id = %s
                     """, (report_id,))
                 conn.commit()
-        
-        return processed
-        
-    except Exception as e:
-        logger.error(f"Error in process_pending_reports: {e}")
-        return 0
+            except Exception:
+                pass
+        return False
+    
     finally:
         if conn:
             conn.close()
 
 
+def pubsub_callback(message):
+    """Callback for Pub/Sub messages."""
+    try:
+        data = json.loads(message.data.decode('utf-8'))
+        report_id = data.get('report_id')
+        
+        if not report_id:
+            logger.error("Message missing report_id, acking to prevent retry")
+            message.ack()
+            return
+        
+        logger.info(f"Received report request for {report_id}")
+        
+        success = process_report_by_id(report_id)
+        
+        if success:
+            message.ack()
+            logger.info(f"Acked report {report_id}")
+        else:
+            message.nack()
+            logger.warning(f"Nacked report {report_id} for retry")
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in message: {e}")
+        message.ack()  # Don't retry malformed messages
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        message.nack()
+
+
 def main():
-    """Main entry point - polls for pending reports."""
+    """Main entry point - subscribes to Pub/Sub for report requests."""
     logger.info("Reports worker starting...")
     logger.info(f"Database: {settings.DATABASE_URL[:30]}...")
     logger.info(f"GCS bucket: {settings.GCS_BUCKET_NAME}")
     
-    while not shutdown_requested:
-        try:
-            processed = process_pending_reports()
-            if processed > 0:
-                logger.info(f"Processed {processed} reports")
-        except Exception as e:
-            logger.error(f"Error in main loop: {e}")
-        
-        # Wait before next poll
-        for _ in range(settings.RUN_INTERVAL_SECONDS):
-            if shutdown_requested:
-                break
-            time.sleep(1)
+    subscriber = pubsub_v1.SubscriberClient()
+    subscription_path = subscriber.subscription_path(
+        settings.GCP_PROJECT_ID,
+        settings.PUBSUB_SUBSCRIPTION_ID
+    )
+    
+    logger.info(f"Subscribing to {subscription_path}")
+    
+    # Pull messages with flow control
+    flow_control = pubsub_v1.types.FlowControl(max_messages=5)
+    streaming_pull_future = subscriber.subscribe(
+        subscription_path,
+        callback=pubsub_callback,
+        flow_control=flow_control
+    )
+    
+    logger.info("Reports Worker ready, listening for messages...")
+    
+    try:
+        streaming_pull_future.result()
+    except KeyboardInterrupt:
+        logger.info("Received interrupt, shutting down...")
+        streaming_pull_future.cancel()
+        streaming_pull_future.result()
+    except Exception as e:
+        logger.error(f"Subscriber error: {e}")
+        streaming_pull_future.cancel()
     
     logger.info("Reports worker stopped.")
 
 
 if __name__ == "__main__":
     main()
+

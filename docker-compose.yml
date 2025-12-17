@@ -189,13 +189,17 @@ services:
 
   cleanup-worker:
     build: ./apps/cleanup-worker
+    ports:
+      - "8088:8080"
     environment:
       - GCP_PROJECT_ID=clausync-dev
       - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
       - GCS_BUCKET_NAME=local-snapshots
       - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
       - RETENTION_DAYS=30
-      - RUN_INTERVAL_HOURS=24
+      - CRON_SECRET=dev-cron-secret
+      - FLASK_ENV=development
+      - PORT=8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,8 +223,8 @@ services:
       - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
       - GCS_BUCKET_NAME=clausync-exports
       - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+      - PUBSUB_SUBSCRIPTION_ID=cmd.generate_export-sub
       - PUBSUB_TOPIC_NOTIFICATION=cmd.send_notification
-      - RUN_INTERVAL_SECONDS=30
       - EXPORT_EXPIRY_DAYS=7
     depends_on:
       postgres:
@@ -249,8 +253,8 @@ services:
       - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
       - GCS_BUCKET_NAME=clausync-reports
       - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+      - PUBSUB_SUBSCRIPTION_ID=cmd.generate_report-sub
       - PUBSUB_TOPIC_NOTIFICATION=cmd.send_notification
-      - RUN_INTERVAL_SECONDS=30
       - REPORT_EXPIRY_DAYS=7
     depends_on:
       postgres:
@@ -347,6 +351,8 @@ services:
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/event.change_detected" 2>&1 || true
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.send_notification" 2>&1 || true
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.vectorize_doc" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.generate_export" 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.generate_report" 2>&1 || true
         
         echo "Creating DLQ topics..."
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/topics/cmd.scrape_url.dlq" 2>&1 || true
@@ -358,6 +364,8 @@ services:
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/event.change_detected-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/event.change_detected"}' 2>&1 || true
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.send_notification-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.send_notification"}' 2>&1 || true
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.vectorize_doc-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.vectorize_doc"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.generate_export-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.generate_export"}' 2>&1 || true
+        curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.generate_report-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.generate_report"}' 2>&1 || true
         
         echo "Creating DLQ subscriptions (for monitoring failed messages)..."
         curl -v -X PUT "http://pubsub-emulator:8085/v1/projects/clausync-dev/subscriptions/cmd.scrape_url.dlq-sub" -H "Content-Type: application/json" -d '{"topic":"projects/clausync-dev/topics/cmd.scrape_url.dlq"}' 2>&1 || true

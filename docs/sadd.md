@@ -386,6 +386,42 @@ This system is designed to meet **SOC 2 Type II** and **GDPR** standards.
   * api\_latency\_p99: Alert if \> 500ms.  
 * **Log Sinks:** Error logs streamed to **Error Reporting** for immediate stack trace visibility.
 
+  ### **6.4 Cloud Scheduler (Scheduled Workers)**
+
+Scheduled tasks are handled by dedicated HTTP-triggered workers, invoked by Cloud Scheduler:
+
+| Worker | Schedule | Description |
+| :---- | :---- | :---- |
+| **monitor-refresh-worker** | `0 * * * *` (hourly) | Claims and refreshes due monitors, publishes scrape commands |
+| **billing-lifecycle-worker** | `0 0 * * *` (daily) | Handles trial notifications, expirations, subscription cleanup |
+| **cleanup-worker** | `0 2 * * *` (2am daily) | GDPR/SOC2 compliant hard deletions and GCS cleanup |
+
+**Cloud Scheduler Setup:**
+```bash
+# Monitor Refresh (hourly)
+gcloud scheduler jobs create http monitor-refresh \
+  --schedule="0 * * * *" \
+  --uri="https://monitor-refresh-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+
+# Billing Lifecycle (daily at midnight)
+gcloud scheduler jobs create http billing-lifecycle \
+  --schedule="0 0 * * *" \
+  --uri="https://billing-lifecycle-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+
+# Cleanup Worker (daily at 2am)
+gcloud scheduler jobs create http cleanup \
+  --schedule="0 2 * * *" \
+  --uri="https://cleanup-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+```
+
+**Authentication:** All workers validate the `X-Cron-Secret` header before processing. In production, use GCP Service Account authentication instead.
+
 ## **7\. Financial & Cost Optimization Strategy**
 
 This architecture is explicitly designed to support the **Lean MVP** financial model while scaling to Enterprise.

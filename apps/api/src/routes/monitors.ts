@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import prisma from '../db/client';
 import { publishMessage } from '../services/pubsub';
 import { CreateMonitorSchema, PaginationSchema, normalizeUrl } from '../utils/validation';
+import { Storage } from '@google-cloud/storage';
 import * as Diff from 'diff';
 
 const router = Router();
@@ -796,13 +797,28 @@ router.get('/:id/snapshots/:sid/content', async (req: Request, res: Response): P
       return;
     }
 
-    // In production, generate a signed URL for the GCS object
-    // For now, return the GCS URI that workers can use
-    // TODO: Implement GCS signed URL generation
-    res.status(501).json({
-      error: 'Not Implemented',
-      message: 'GCS signed URL generation not yet configured',
-      gcsUri: snapshot.gcsUri, // For debugging - remove in production
+    // Generate signed URL for GCS object
+    const bucketName = process.env.GCS_BUCKET_NAME || 'local-snapshots';
+    const storage = new Storage();
+    
+    // Extract file path from gcsUri (format: gs://bucket-name/path/to/file)
+    const gcsPath = snapshot.gcsUri.replace(`gs://${bucketName}/`, '');
+    
+    const [signedUrl] = await storage
+      .bucket(bucketName)
+      .file(gcsPath)
+      .getSignedUrl({
+        version: 'v4',
+        action: 'read',
+        expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      });
+
+    res.status(200).json({
+      downloadUrl: signedUrl,
+      expiresIn: '15 minutes',
+      contentType: 'text/html',
+      snapshotId: snapshot.id,
+      scrapedAt: snapshot.scrapedAt,
     });
   } catch (error) {
     console.error('Error getting snapshot content:', error);

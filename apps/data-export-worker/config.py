@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     STORAGE_EMULATOR_HOST: Optional[str] = None
     
     # Pub/Sub
+    PUBSUB_SUBSCRIPTION_ID: str = "cmd.generate_export-sub"
     PUBSUB_TOPIC_NOTIFICATION: str = "cmd.send_notification"
     
     # Worker settings
-    RUN_INTERVAL_SECONDS: int = 30
     EXPORT_EXPIRY_DAYS: int = 7
     
     class Config:
@@ -27,3 +27,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

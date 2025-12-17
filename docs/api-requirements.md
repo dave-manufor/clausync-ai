@@ -420,12 +420,12 @@ Analysis of actual implementation in `apps/api` vs requirements above.
 - ✅ **Monitor pause/resume** - with audit logging (Phase 1)
 - ✅ **Snapshot browsing** - list, detail, content endpoints (Phase 1)
 
-### Known Gaps
-- ❌ No document upload for RAG context
-- ❌ Data export worker not processing requests
-- ❌ Webhook delivery worker not implemented
-- ❌ No API versioning (`/api/v1/` prefix missing)
-- ❌ Snapshot content endpoint returns 501 (GCS signed URL not implemented)
+### Known Gaps (Updated Dec 2024)
+- ✅ ~~No document upload for RAG context~~ → `POST /api/v1/documents` fully implemented
+- ✅ ~~Data export worker not processing~~ → Refactored to Pub/Sub event-driven
+- ⏸️ Webhook delivery worker → Deferred (Phase 5)
+- ✅ ~~No API versioning~~ → All routes under `/api/v1/`
+- ✅ ~~Snapshot content 501~~ → GCS signed URL implemented
 
 ---
 
@@ -542,7 +542,7 @@ All pending features organized into logical phases.
 
 ---
 
-### Phase 8: Admin & Operations (1-2 weeks)
+### Phase 8: Admin & Operations (1-2 weeks) ⏸️ *DEFERRED*
 *Focus: Platform management*
 
 | Feature | Section | Endpoint/Task |
@@ -588,7 +588,7 @@ All pending features organized into logical phases.
 
 ---
 
-## Phase 11: Future Roadmap (Not Started)
+## Phase 11: Future Roadmap ⏸️ *DEFERRED*
 
 | Feature | Priority | Description |
 |---------|----------|-------------|
@@ -611,4 +611,139 @@ All pending features organized into logical phases.
 
 **Total estimated effort: 14-19 weeks** (phases can be parallelized)
 
+---
+
+## Worker Architecture
+
+The system uses a mix of HTTP-triggered and event-driven workers:
+
+### Scheduled Workers (HTTP-triggered via Cloud Scheduler)
+
+| Worker | Port | Schedule | Description |
+|--------|------|----------|-------------|
+| `monitor-refresh-worker` | 8087 | `0 * * * *` (hourly) | Claims and refreshes due monitors |
+| `billing-lifecycle-worker` | 8086 | `0 0 * * *` (daily) | Trial/subscription lifecycle tasks |
+| `cleanup-worker` | 8088 | `0 2 * * *` (2am daily) | GDPR/SOC2 deletions and GCS cleanup |
+
+**Endpoints:** Each worker exposes `/health` and `/run` endpoints.
+
+### Event-Driven Workers (Pub/Sub subscribers)
+
+| Worker | Subscription | Triggered By |
+|--------|--------------|--------------|
+| `ingestion-worker` | `cmd.scrape_url-sub` | Monitor refresh, new monitor |
+| `analysis-worker` | `event.change_detected-sub` | Scraper detects change |
+| `notification-worker` | `cmd.send_notification-sub` | Alerts, reports ready |
+| `data-export-worker` | `cmd.generate_export-sub` | `POST /users/me/export` |
+| `reports-worker` | `cmd.generate_report-sub` | `POST /reports` |
+| `vectorize-worker` | `cmd.vectorize_doc-sub` | Document upload |
+
+### Cloud Scheduler Setup (Production)
+
+```bash
+# Monitor Refresh (hourly)
+gcloud scheduler jobs create http monitor-refresh \
+  --schedule="0 * * * *" \
+  --uri="https://monitor-refresh-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+
+# Billing Lifecycle (daily at midnight)
+gcloud scheduler jobs create http billing-lifecycle \
+  --schedule="0 0 * * *" \
+  --uri="https://billing-lifecycle-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+
+# Cleanup Worker (daily at 2am)
+gcloud scheduler jobs create http cleanup \
+  --schedule="0 2 * * *" \
+  --uri="https://cleanup-worker.run.app/run" \
+  --http-method=POST \
+  --headers="X-Cron-Secret=YOUR_SECRET"
+```
+
+### Pub/Sub Topics
+
+| Topic | Purpose |
+|-------|---------|
+| `cmd.scrape_url` | Trigger scraping of a URL |
+| `event.change_detected` | Change detected by scraper |
+| `cmd.send_notification` | Send email/webhook notification |
+| `cmd.vectorize_doc` | Vectorize uploaded document |
+| `cmd.generate_export` | Generate GDPR data export |
+| `cmd.generate_report` | Generate PDF/CSV report |
+
+---
+
+## External Setup Requirements
+
+These require configuration outside the codebase:
+
+### PayStack (Payment Processing)
+
+**What you need:**
+1. PayStack business account: https://paystack.com/
+2. Get API keys from Dashboard → Settings → API Keys & Webhooks
+
+**Environment variables:**
+```bash
+PAYMENT_PROCESSOR=paystack
+PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
+PAYSTACK_PUBLIC_KEY=pk_test_xxxxxxxxxxxxxxxxxxxx  # For frontend
+```
+
+**Webhook setup:**
+- URL: `https://your-api-domain.com/webhooks/paystack`
+- Events: `subscription.create`, `charge.success`, `subscription.disable`, `invoice.payment_failed`
+- Copy webhook signing secret to verify signatures
+
+**Plan codes:**
+In PayStack Dashboard → Products → Plans, create plans matching your tier names (starter, professional, enterprise). Note the plan codes.
+
+---
+
+### Firebase / GCP Identity Platform
+
+**What you need:**
+1. GCP project with Identity Platform enabled
+2. Firebase project (or standalone Identity Platform)
+
+**Environment variables:**
+```bash
+# Firebase Admin SDK (for backend)
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+# OR
+FIREBASE_PROJECT_ID=your-project-id
+
+# For frontend
+NEXT_PUBLIC_FIREBASE_API_KEY=xxxx
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+```
+
+---
+
+### Email Provider (Resend)
+
+**Already configured for:** `notification-worker`
+
+**Environment variables:**
+```bash
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+FROM_EMAIL=notifications@clausync.io
+```
+
+---
+
+### GCP Services
+
+| Service | Purpose | Setup |
+|---------|---------|-------|
+| **Cloud SQL** | PostgreSQL database | Create instance, enable connections |
+| **Cloud Storage** | Snapshots, exports, uploads | Create buckets + IAM policies |
+| **Pub/Sub** | Event messaging | Topics created via `pubsub-init` |
+| **Secret Manager** | Secure secrets | Store API keys, not in code |
+| **Cloud Scheduler** | Cron jobs | See Worker Architecture section |
+| **Vertex AI** | AI/ML for analysis | Enable API + service account |
 

@@ -341,8 +341,8 @@ def cleanup_expired_exports(conn, storage_client) -> int:
     return cleaned_count
 
 
-def run_cleanup():
-    """Run the cleanup job."""
+def run_cleanup() -> dict:
+    """Run the cleanup job and return results."""
     logger.info("Starting cleanup job")
     
     retention_date = datetime.utcnow() - timedelta(days=config.settings.RETENTION_DAYS)
@@ -351,54 +351,110 @@ def run_cleanup():
     conn = get_db_connection()
     storage_client = get_storage_client()
     
+    results = {
+        'gdpr_deletions': 0,
+        'subscriptions': 0,
+        'resources': 0,
+        'snapshots': 0,
+        'exports': 0,
+    }
+    
     try:
         # GDPR Art. 17: Process deletion requests that have passed their grace period
-        deletion_count = process_deletion_requests(conn)
-        logger.info(f"Processed {deletion_count} GDPR deletion requests")
+        results['gdpr_deletions'] = process_deletion_requests(conn)
+        logger.info(f"Processed {results['gdpr_deletions']} GDPR deletion requests")
         
         # Cleanup subscriptions
-        sub_count = cleanup_subscriptions(conn, retention_date)
-        logger.info(f"Hard deleted {sub_count} subscriptions")
+        results['subscriptions'] = cleanup_subscriptions(conn, retention_date)
+        logger.info(f"Hard deleted {results['subscriptions']} subscriptions")
         
         # Cleanup resources
-        res_count = cleanup_resources(conn, retention_date)
-        logger.info(f"Hard deleted {res_count} resources")
+        results['resources'] = cleanup_resources(conn, retention_date)
+        logger.info(f"Hard deleted {results['resources']} resources")
         
         # Cleanup GCS snapshots
-        snap_count = cleanup_gcs_snapshots(conn, storage_client, retention_date)
-        logger.info(f"Hard deleted {snap_count} GCS snapshots")
+        results['snapshots'] = cleanup_gcs_snapshots(conn, storage_client, retention_date)
+        logger.info(f"Hard deleted {results['snapshots']} GCS snapshots")
         
         # Cleanup expired data exports
-        export_count = cleanup_expired_exports(conn, storage_client)
-        logger.info(f"Cleaned {export_count} expired data exports")
+        results['exports'] = cleanup_expired_exports(conn, storage_client)
+        logger.info(f"Cleaned {results['exports']} expired data exports")
         
-        total = deletion_count + sub_count + res_count + snap_count + export_count
+        total = sum(results.values())
         logger.info(f"Cleanup complete. Total: {total} records processed")
+        
+        return results
         
     finally:
         conn.close()
 
 
+# ============================================================
+# Flask HTTP Server (for Cloud Scheduler / manual trigger)
+# ============================================================
+
+from flask import Flask, jsonify, request
+import os
+
+app = Flask(__name__)
+
+CRON_SECRET = os.environ.get('CRON_SECRET', 'dev-cron-secret')
+
+
+def verify_cron_auth() -> bool:
+    """Verify cron request authentication."""
+    auth_header = request.headers.get('X-Cron-Secret') or request.headers.get('Authorization', '')
+    if auth_header == CRON_SECRET:
+        return True
+    if auth_header == f'Bearer {CRON_SECRET}':
+        return True
+    if os.environ.get('NODE_ENV') == 'development' or os.environ.get('FLASK_ENV') == 'development':
+        return True
+    return False
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint."""
+    try:
+        conn = get_db_connection()
+        conn.close()
+        return jsonify({'healthy': True, 'database': True})
+    except Exception as e:
+        return jsonify({'healthy': False, 'database': False, 'error': str(e)}), 503
+
+
+@app.route('/run', methods=['POST'])
+def run():
+    """Run cleanup job (triggered by Cloud Scheduler)."""
+    if not verify_cron_auth():
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        start_time = datetime.utcnow()
+        results = run_cleanup()
+        duration = (datetime.utcnow() - start_time).total_seconds()
+        
+        return jsonify({
+            'success': True,
+            'duration_seconds': duration,
+            **results
+        })
+    except Exception as e:
+        logger.error(f"Cleanup job failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def main():
-    """Main entry point - runs cleanup on schedule."""
-    logger.info(f"Cleanup worker started. Run interval: {config.settings.RUN_INTERVAL_HOURS} hours")
+    """Main entry point - runs Flask server."""
+    port = int(os.environ.get('PORT', 8080))
+    logger.info(f"Cleanup worker starting on port {port}")
     logger.info(f"Retention period: {config.settings.RETENTION_DAYS} days")
     
-    while not shutdown_requested:
-        try:
-            run_cleanup()
-        except Exception as e:
-            logger.error(f"Cleanup job failed: {e}")
-        
-        # Sleep until next run (check for shutdown every minute)
-        sleep_seconds = config.settings.RUN_INTERVAL_HOURS * 3600
-        for _ in range(sleep_seconds // 60):
-            if shutdown_requested:
-                break
-            time.sleep(60)
-    
-    logger.info("Cleanup worker shutdown complete")
+    # Run Flask server
+    app.run(host='0.0.0.0', port=port, debug=False)
 
 
 if __name__ == "__main__":
     main()
+

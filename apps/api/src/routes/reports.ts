@@ -94,11 +94,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    // TODO: Publish to reports-worker via Pub/Sub
-    // const pubsub = new PubSub();
-    // await pubsub.topic('cmd.generate_report').publishMessage({
-    //   data: Buffer.from(JSON.stringify({ reportId: report.id })),
-    // });
+    // Publish to reports-worker via Pub/Sub
+    const { publishMessage } = await import('../services/pubsub');
+    await publishMessage('cmd.generate_report', { report_id: report.id });
 
     res.status(201).json({
       message: 'Report generation started',

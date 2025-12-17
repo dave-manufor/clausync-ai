@@ -236,107 +236,162 @@ def send_notification(publisher, user_email: str, export_id: str):
         logger.error(f"Failed to publish notification: {e}")
 
 
-def process_pending_exports():
-    """Process all pending DataExport records."""
+def process_export_by_id(export_id: str) -> bool:
+    """Process a specific export by ID. Returns True on success."""
     conn = get_db_connection()
     storage_client = get_storage_client()
     publisher = get_publisher()
     
     try:
         with conn.cursor() as cur:
-            # Find pending exports
+            # Find the export
             cur.execute("""
-                SELECT de.id, de.user_id, u.email
+                SELECT de.id, de.user_id, de.status, u.email
                 FROM data_exports de
                 JOIN users u ON de.user_id = u.id
-                WHERE de.status = 'pending'
-                ORDER BY de.created_at ASC
-                LIMIT 10
-            """)
-            exports = cur.fetchall()
+                WHERE de.id = %s
+            """, (export_id,))
+            export = cur.fetchone()
         
-        for export in exports:
-            try:
-                export_id = export['id']
-                user_id = export['user_id']
-                user_email = export['email']
-                
-                logger.info(f"Processing export {export_id} for user {user_id}")
-                
-                # Mark as processing
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE data_exports SET status = 'processing'
-                        WHERE id = %s
-                    """, (export_id,))
-                    conn.commit()
-                
-                # Gather data
-                data = gather_user_data(conn, user_id)
-                
-                # Create archive
-                archive = create_export_archive(data)
-                
-                # Upload to GCS
-                gcs_uri = upload_to_gcs(storage_client, archive, user_id, export_id)
-                
-                # Update record
-                expires_at = datetime.utcnow() + timedelta(days=config.settings.EXPORT_EXPIRY_DAYS)
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE data_exports 
-                        SET status = 'ready', file_url = %s, expires_at = %s
-                        WHERE id = %s
-                    """, (gcs_uri, expires_at, export_id))
-                    
-                    # Audit log
-                    cur.execute("""
-                        INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, created_at)
-                        VALUES (
-                            gen_random_uuid(), %s, 'EXPORT_READY', 'data_export', %s,
-                            jsonb_build_object('file_url', %s, 'expires_at', %s::text),
-                            NOW()
-                        )
-                    """, (user_id, export_id, gcs_uri, expires_at.isoformat()))
-                    conn.commit()
-                
-                # Send notification
-                send_notification(publisher, user_email, export_id)
-                
-                logger.info(f"Completed export {export_id}")
-                
-            except Exception as e:
-                logger.error(f"Error processing export {export['id']}: {e}")
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE data_exports 
-                        SET status = 'pending'
-                        WHERE id = %s
-                    """, (export['id'],))
-                    conn.commit()
+        if not export:
+            logger.error(f"Export not found: {export_id}")
+            return True  # Ack to prevent retry loop for missing record
+        
+        if export['status'] not in ('pending', 'processing'):
+            logger.info(f"Export {export_id} already processed (status: {export['status']})")
+            return True  # Already done
+        
+        user_id = export['user_id']
+        user_email = export['email']
+        
+        logger.info(f"Processing export {export_id} for user {user_id}")
+        
+        # Mark as processing
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE data_exports SET status = 'processing'
+                WHERE id = %s
+            """, (export_id,))
+            conn.commit()
+        
+        # Gather data
+        data = gather_user_data(conn, user_id)
+        
+        # Create archive
+        archive = create_export_archive(data)
+        
+        # Upload to GCS
+        gcs_uri = upload_to_gcs(storage_client, archive, user_id, export_id)
+        
+        # Update record
+        expires_at = datetime.utcnow() + timedelta(days=config.settings.EXPORT_EXPIRY_DAYS)
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE data_exports 
+                SET status = 'ready', file_url = %s, expires_at = %s
+                WHERE id = %s
+            """, (gcs_uri, expires_at, export_id))
+            
+            # Audit log
+            cur.execute("""
+                INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, created_at)
+                VALUES (
+                    gen_random_uuid(), %s, 'EXPORT_READY', 'data_export', %s,
+                    jsonb_build_object('file_url', %s, 'expires_at', %s::text),
+                    NOW()
+                )
+            """, (user_id, export_id, gcs_uri, expires_at.isoformat()))
+            conn.commit()
+        
+        # Send notification
+        send_notification(publisher, user_email, export_id)
+        
+        logger.info(f"Completed export {export_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error processing export {export_id}: {e}")
+        # Reset to pending for retry
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE data_exports SET status = 'pending'
+                    WHERE id = %s
+                """, (export_id,))
+                conn.commit()
+        except Exception:
+            pass
+        return False
     
     finally:
         conn.close()
 
 
-def main():
-    """Main entry point - polls for pending exports."""
-    logger.info(f"Data Export Worker started. Poll interval: {config.settings.RUN_INTERVAL_SECONDS}s")
-    
-    while not shutdown_requested:
-        try:
-            process_pending_exports()
-        except Exception as e:
-            logger.error(f"Export processing failed: {e}")
+def pubsub_callback(message):
+    """Callback for Pub/Sub messages."""
+    try:
+        data = json.loads(message.data.decode('utf-8'))
+        export_id = data.get('export_id')
         
-        # Sleep with shutdown check
-        for _ in range(config.settings.RUN_INTERVAL_SECONDS):
-            if shutdown_requested:
-                break
-            time.sleep(1)
+        if not export_id:
+            logger.error("Message missing export_id, acking to prevent retry")
+            message.ack()
+            return
+        
+        logger.info(f"Received export request for {export_id}")
+        
+        success = process_export_by_id(export_id)
+        
+        if success:
+            message.ack()
+            logger.info(f"Acked export {export_id}")
+        else:
+            message.nack()
+            logger.warning(f"Nacked export {export_id} for retry")
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in message: {e}")
+        message.ack()  # Don't retry malformed messages
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        message.nack()
+
+
+def main():
+    """Main entry point - subscribes to Pub/Sub for export requests."""
+    logger.info("Data Export Worker starting...")
+    
+    subscriber = pubsub_v1.SubscriberClient()
+    subscription_path = subscriber.subscription_path(
+        config.settings.GCP_PROJECT_ID,
+        config.settings.PUBSUB_SUBSCRIPTION_ID
+    )
+    
+    logger.info(f"Subscribing to {subscription_path}")
+    
+    # Pull messages with flow control
+    flow_control = pubsub_v1.types.FlowControl(max_messages=5)
+    streaming_pull_future = subscriber.subscribe(
+        subscription_path,
+        callback=pubsub_callback,
+        flow_control=flow_control
+    )
+    
+    logger.info("Data Export Worker ready, listening for messages...")
+    
+    try:
+        streaming_pull_future.result()
+    except KeyboardInterrupt:
+        logger.info("Received interrupt, shutting down...")
+        streaming_pull_future.cancel()
+        streaming_pull_future.result()
+    except Exception as e:
+        logger.error(f"Subscriber error: {e}")
+        streaming_pull_future.cancel()
     
     logger.info("Data Export Worker shutdown complete")
 
 
 if __name__ == "__main__":
     main()
+
