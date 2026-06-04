@@ -333,3 +333,68 @@ output "vectorize_worker_service_url" {
 output "notification_worker_service_url" {
   value = google_cloud_run_v2_service.services["notification_worker"].uri
 }
+
+# -----------------------------------------------------------------------------
+# Push Subscriptions
+# -----------------------------------------------------------------------------
+resource "google_pubsub_subscription" "push_subscriptions" {
+  for_each = {
+    ingestion_worker = {
+      topic = var.pubsub_topic_scrape
+      url   = google_cloud_run_v2_service.services["ingestion_worker"].uri
+      dlq   = var.pubsub_topic_scrape_dlq_id
+      sa    = var.ingestion_worker_service_account_email
+    }
+    analysis_worker = {
+      topic = var.pubsub_topic_change
+      url   = google_cloud_run_v2_service.services["analysis_worker"].uri
+      dlq   = var.pubsub_topic_change_dlq_id
+      sa    = var.analysis_worker_service_account_email
+    }
+    vectorize_worker = {
+      topic = var.pubsub_topic_vectorize
+      url   = google_cloud_run_v2_service.services["vectorize_worker"].uri
+      dlq   = var.pubsub_topic_vectorize_dlq_id
+      sa    = var.vectorize_worker_service_account_email
+    }
+    notification_worker = {
+      topic = var.pubsub_topic_notify
+      url   = google_cloud_run_v2_service.services["notification_worker"].uri
+      dlq   = var.pubsub_topic_notify_dlq_id
+      sa    = var.notification_worker_service_account_email
+    }
+  }
+
+  name    = "${each.value.topic}-sub"
+  topic   = each.value.topic
+  project = var.project_id
+
+  ack_deadline_seconds       = 60
+  message_retention_duration = "604800s"
+
+  push_config {
+    push_endpoint = each.value.url
+    oidc_token {
+      service_account_email = each.value.sa
+    }
+  }
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+
+  dead_letter_policy {
+    dead_letter_topic     = each.value.dlq
+    max_delivery_attempts = 5
+  }
+
+  expiration_policy {
+    ttl = ""
+  }
+
+  labels = {
+    environment = var.environment
+    service     = each.key
+  }
+}

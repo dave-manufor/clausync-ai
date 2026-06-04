@@ -7,3 +7,5 @@ pydantic-settings
 python-json-logger
 markdownify
 psycopg2-binary
+Flask
+gunicorn

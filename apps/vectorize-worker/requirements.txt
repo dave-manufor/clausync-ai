@@ -6,3 +6,5 @@ python-docx
 pydantic-settings
 python-json-logger
 psycopg2-binary
+Flask
+gunicorn

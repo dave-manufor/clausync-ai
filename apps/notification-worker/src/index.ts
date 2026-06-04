@@ -20,7 +20,8 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://app.clausync.ai';
 
 // Initialize clients
 const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
-const resend = new Resend(RESEND_API_KEY);
+// Initialize Resend with a dummy key if missing to prevent startup crash
+const resend = new Resend(RESEND_API_KEY || 're_dummy12345678901234567890123456789');
 const pool = new Pool({ connectionString: DATABASE_URL });
 
 // Base notification payload shared by all types
@@ -131,10 +132,10 @@ async function renderReportReadyEmail(data: ReportReadyPayload): Promise<string>
   return render(emailComponent as React.ReactElement);
 }
 
-async function processMessage(message: Message): Promise<void> {
+import express, { Request, Response } from 'express';
+
+async function processMessage(rawData: any): Promise<boolean> {
   try {
-    const rawData = JSON.parse(message.data.toString());
-    
     // Check for report_ready type first (different message structure)
     if (rawData.type === 'report_ready') {
       const data = rawData as ReportReadyPayload;
@@ -155,13 +156,11 @@ async function processMessage(message: Message): Promise<void> {
       
       if (error) {
         console.error('Failed to send report ready email:', error);
-        message.nack();
-        return;
+        return false;
       }
       
       console.log('Report ready email sent successfully:', emailResult?.id);
-      message.ack();
-      return;
+      return true;
     }
     
     // Handle standard notification types (change_alert, billing)
@@ -178,14 +177,12 @@ async function processMessage(message: Message): Promise<void> {
     // Idempotency check - prevent duplicate emails
     if (!data.notification_id) {
       console.log('Notification missing notification_id, skipping');
-      message.ack();
-      return;
+      return true; // Ack
     }
     
     if (await isAlreadySent(data.notification_id)) {
       console.log(`Notification ${data.notification_id} already sent, skipping`);
-      message.ack();
-      return;
+      return true; // Ack
     }
 
     // Render appropriate email template
@@ -206,8 +203,7 @@ async function processMessage(message: Message): Promise<void> {
 
     if (error) {
       console.error('Failed to send email:', error);
-      message.nack();
-      return;
+      return false; // Nack
     }
 
     console.log('Email sent successfully:', emailResult?.id);
@@ -215,42 +211,65 @@ async function processMessage(message: Message): Promise<void> {
     // Mark notification as sent
     await markNotificationSent(data.notification_id);
 
-    message.ack();
+    return true; // Ack
   } catch (error) {
     console.error('Error processing message:', error);
-    message.nack();
+    return false; // Nack
   }
 }
 
-async function main(): Promise<void> {
-  console.log(`Notification Worker Starting...`);
-  console.log(`Subscription: ${SUBSCRIPTION_ID}`);
-  console.log(`Supports: change_alerts, billing_notifications`);
+const app = express();
+app.use(express.json());
 
-  const subscription = pubsub.subscription(SUBSCRIPTION_ID);
+app.post('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const envelope = req.body;
+    if (!envelope || !envelope.message) {
+      res.status(400).send('Bad Request: Invalid Pub/Sub message format');
+      return;
+    }
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('Received SIGTERM, shutting down...');
-    subscription.close();
-    pool.end();
-    process.exit(0);
-  });
+    const pubsubMessage = envelope.message;
+    if (pubsubMessage.data) {
+      const dataStr = Buffer.from(pubsubMessage.data, 'base64').toString('utf-8');
+      const data = JSON.parse(dataStr);
+      console.log('Received message:', JSON.stringify(data));
+      
+      const success = await processMessage(data);
+      if (success) {
+        res.status(204).send();
+      } else {
+        res.status(500).send('Internal Server Error');
+      }
+    } else {
+      res.status(400).send('Bad Request: No data in message');
+    }
+  } catch (error) {
+    console.error('Error processing Pub/Sub message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
-  process.on('SIGINT', () => {
-    console.log('Received SIGINT, shutting down...');
-    subscription.close();
-    pool.end();
-    process.exit(0);
-  });
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).send('OK');
+});
 
-  subscription.on('message', processMessage);
-  subscription.on('error', (error) => {
-    console.error('Subscription error:', error);
-  });
+const PORT = process.env.PORT || 8080;
+const server = app.listen(PORT, () => {
+  console.log(`Notification Worker listening on port ${PORT}`);
+});
 
-  console.log('Listening for messages...');
-}
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down...');
+  server.close();
+  pool.end();
+  process.exit(0);
+});
 
-main().catch(console.error);
+process.on('SIGINT', () => {
+  console.log('Received SIGINT, shutting down...');
+  server.close();
+  pool.end();
+  process.exit(0);
+});
 

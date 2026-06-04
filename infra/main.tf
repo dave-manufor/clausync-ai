@@ -180,6 +180,11 @@ module "cloudrun" {
   pubsub_topic_notify    = module.pubsub.topic_send_notification_name
   pubsub_topic_vectorize = module.pubsub.topic_vectorize_doc_name
 
+  pubsub_topic_scrape_dlq_id    = module.pubsub.topic_scrape_url_dlq_id
+  pubsub_topic_change_dlq_id    = module.pubsub.topic_change_detected_dlq_id
+  pubsub_topic_notify_dlq_id    = module.pubsub.topic_send_notification_dlq_id
+  pubsub_topic_vectorize_dlq_id = module.pubsub.topic_vectorize_doc_dlq_id
+
   # Storage buckets
   snapshots_bucket_name = module.storage.snapshots_bucket_name
   uploads_bucket_name   = module.storage.uploads_bucket_name
