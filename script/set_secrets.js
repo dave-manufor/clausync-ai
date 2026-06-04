@@ -4,8 +4,8 @@ const projectId = 'clausync-demo';
 const environment = 'dev';
 
 const secrets = {
-  'database_url': '***SECRET_REMOVED***',
-  'redis_url': '***SECRET_REMOVED***'
+  'database_url': process.env.DATABASE_URL || '',
+  'redis_url': process.env.REDIS_URL || ''
 };
 
 async function addSecretVersions() {
