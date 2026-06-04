@@ -179,10 +179,13 @@ locals {
       ingress         = "internal"
       port            = 8080
       env = merge(local.common_env, {
-        DASHBOARD_URL = var.environment == "prod" ? "https://app.clausync.ai" : "https://app-${var.environment}.clausync.ai"
+        DASHBOARD_URL  = var.environment == "prod" ? "https://app.clausync.ai" : "https://app-${var.environment}.clausync.ai"
+        EMAIL_PROVIDER = "brevo"
+        EMAIL_FROM     = "hello@clausync-demo.davman.dev"
       })
       secret_env = {
-        DATABASE_URL = var.database_url_secret_id
+        DATABASE_URL  = var.database_url_secret_id
+        BREVO_API_KEY = var.brevo_api_key_secret_id
       }
     }
   }

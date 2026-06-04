@@ -192,6 +192,7 @@ module "cloudrun" {
   # Pass Secret IDs instead of values
   database_url_secret_id = module.secrets.database_url_secret_id
   redis_url_secret_id    = module.secrets.redis_url_secret_id
+  brevo_api_key_secret_id = module.secrets.brevo_api_key_secret_id
 
   depends_on = [
     module.network,

@@ -62,6 +62,12 @@ locals {
         var.notification_worker_service_account_email,
       ]
     }
+    brevo_api_key = {
+      description = "Brevo API key for sending emails"
+      accessors = [
+        var.notification_worker_service_account_email,
+      ]
+    }
     proxy_host = {
       description = "Bright Data proxy host"
       accessors = [
@@ -142,7 +148,7 @@ resource "google_secret_manager_secret_iam_member" "vectorize_worker_sa_access" 
 }
 
 resource "google_secret_manager_secret_iam_member" "notification_worker_sa_access" {
-  for_each  = toset(["database_url", "resend_api_key"])
+  for_each  = toset(["database_url", "resend_api_key", "brevo_api_key"])
   project   = var.project_id
   secret_id = google_secret_manager_secret.main[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
@@ -174,4 +180,8 @@ output "proxy_user_secret_id" {
 
 output "proxy_pass_secret_id" {
   value = google_secret_manager_secret.main["proxy_pass"].secret_id
+}
+
+output "brevo_api_key_secret_id" {
+  value = google_secret_manager_secret.main["brevo_api_key"].secret_id
 }

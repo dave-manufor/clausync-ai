@@ -20,9 +20,82 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://app.clausync.ai';
 
 // Initialize clients
 const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
-// Initialize Resend with a dummy key if missing to prevent startup crash
-const resend = new Resend(RESEND_API_KEY || 're_dummy12345678901234567890123456789');
 const pool = new Pool({ connectionString: DATABASE_URL });
+
+// Abstract Email Provider
+interface EmailProvider {
+  sendEmail(to: string, subject: string, html: string): Promise<boolean>;
+}
+
+class ResendProvider implements EmailProvider {
+  private resend: Resend;
+  
+  constructor() {
+    this.resend = new Resend(process.env.RESEND_API_KEY || 're_dummy12345678901234567890123456789');
+  }
+
+  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    const { error } = await this.resend.emails.send({
+      from: EMAIL_FROM,
+      to,
+      subject,
+      html,
+    });
+    if (error) {
+      console.error('Resend failed:', error);
+      return false;
+    }
+    return true;
+  }
+}
+
+class BrevoProvider implements EmailProvider {
+  private apiKey: string;
+
+  constructor() {
+    this.apiKey = process.env.BREVO_API_KEY || '';
+  }
+
+  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    if (!this.apiKey) {
+      console.error('Brevo API key is missing');
+      return false;
+    }
+
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': this.apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { email: EMAIL_FROM },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Brevo API error:', response.status, errorText);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Brevo network error:', error);
+      return false;
+    }
+  }
+}
+
+// Select Provider
+const emailProvider: EmailProvider = process.env.EMAIL_PROVIDER === 'brevo' 
+  ? new BrevoProvider() 
+  : new ResendProvider();
 
 // Base notification payload shared by all types
 interface BaseNotificationPayload {
@@ -147,19 +220,18 @@ async function processMessage(rawData: any): Promise<boolean> {
       
       const emailHtml = await renderReportReadyEmail(data);
       
-      const { data: emailResult, error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to: data.email,
-        subject: data.subject || 'Your Clausync Report is Ready',
-        html: emailHtml,
-      });
+      const success = await emailProvider.sendEmail(
+        data.email,
+        data.subject || 'Your Clausync Report is Ready',
+        emailHtml
+      );
       
-      if (error) {
-        console.error('Failed to send report ready email:', error);
+      if (!success) {
+        console.error('Failed to send report ready email');
         return false;
       }
       
-      console.log('Report ready email sent successfully:', emailResult?.id);
+      console.log('Report ready email sent successfully');
       return true;
     }
     
@@ -194,19 +266,18 @@ async function processMessage(rawData: any): Promise<boolean> {
     }
 
     // Send email via Resend
-    const { data: emailResult, error } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: data.email,
-      subject: data.subject,
-      html: emailHtml,
-    });
+    const success = await emailProvider.sendEmail(
+      data.email,
+      data.subject,
+      emailHtml
+    );
 
-    if (error) {
-      console.error('Failed to send email:', error);
+    if (!success) {
+      console.error('Failed to send email');
       return false; // Nack
     }
 
-    console.log('Email sent successfully:', emailResult?.id);
+    console.log('Email sent successfully');
 
     // Mark notification as sent
     await markNotificationSent(data.notification_id);
