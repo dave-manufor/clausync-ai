@@ -56,7 +56,8 @@ export function ProfileSettingsPage() {
   const updateProfile = useUpdateProfile()
 
   // Extract user data from response (handles both {data: User} and User formats)
-  const user = userResponse && 'data' in userResponse ? userResponse.data : userResponse
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user: any = userResponse && typeof userResponse === 'object' && 'data' in userResponse ? (userResponse as any).data : userResponse
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
