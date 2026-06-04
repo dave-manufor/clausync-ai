@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import Redis from 'ioredis';
 
-// Redis client - uses same instance as the app
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  keyPrefix: 'clausync:',
+});
 
 // Skip rate limiting in development unless explicitly enabled
 const SKIP_RATE_LIMIT_IN_DEV = process.env.RATE_LIMIT_ENABLED !== 'true' && 

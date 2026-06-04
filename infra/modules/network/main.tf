@@ -36,40 +36,7 @@ resource "google_compute_subnetwork" "serverless" {
   private_ip_google_access = true
 }
 
-# -----------------------------------------------------------------------------
-# Private Services Access (for Cloud SQL, Memorystore)
-# -----------------------------------------------------------------------------
-resource "google_compute_global_address" "private_ip_range" {
-  name          = "clausync-private-ip-${var.environment}"
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = google_compute_network.main.id
-  project       = var.project_id
-}
 
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.main.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
-}
-
-# -----------------------------------------------------------------------------
-# Serverless VPC Access Connector (for Cloud Run → Private Resources)
-# -----------------------------------------------------------------------------
-resource "google_vpc_access_connector" "serverless" {
-  name    = "clausync-connector-${var.environment}"
-  region  = var.region
-  project = var.project_id
-
-  subnet {
-    name = google_compute_subnetwork.serverless.name
-  }
-
-  machine_type  = "e2-micro" # Smallest, ~$2-3/month when active
-  min_instances = 2
-  max_instances = 3
-}
 
 # -----------------------------------------------------------------------------
 # Firewall Rules
@@ -124,14 +91,4 @@ output "vpc_network_name" {
   value = google_compute_network.main.name
 }
 
-output "vpc_connector_id" {
-  value = google_vpc_access_connector.serverless.id
-}
 
-output "private_ip_range_name" {
-  value = google_compute_global_address.private_ip_range.name
-}
-
-output "serverless_subnet_name" {
-  value = google_compute_subnetwork.serverless.name
-}

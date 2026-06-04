@@ -14,10 +14,6 @@ variable "environment" {
   type = string
 }
 
-variable "vpc_connector_id" {
-  type = string
-}
-
 variable "artifact_registry_url" {
   type = string
 }
@@ -43,8 +39,7 @@ variable "notification_worker_service_account_email" {
   type = string
 }
 
-# Database
-variable "database_connection_name" {
+variable "database_url_secret_id" {
   type = string
 }
 
@@ -74,15 +69,8 @@ variable "uploads_bucket_name" {
   type = string
 }
 
-# Redis (optional)
-variable "redis_host" {
-  type    = string
-  default = ""
-}
-
-variable "redis_port" {
-  type    = number
-  default = 6379
+variable "redis_url_secret_id" {
+  type = string
 }
 
 # -----------------------------------------------------------------------------
@@ -111,11 +99,12 @@ locals {
       ingress         = "all" # Public API
       port            = 8080
       env = merge(local.common_env, {
-        PORT                = "8080"
         PUBSUB_TOPIC_SCRAPE = var.pubsub_topic_scrape
-        REDIS_HOST          = var.redis_host
-        REDIS_PORT          = tostring(var.redis_port)
       })
+      secret_env = {
+        DATABASE_URL = var.database_url_secret_id
+        REDIS_URL    = var.redis_url_secret_id
+      }
     }
     ingestion_worker = {
       name            = "clausync-ingestion-${var.environment}"
@@ -132,9 +121,11 @@ locals {
       env = merge(local.common_env, {
         GCS_BUCKET_NAME     = var.snapshots_bucket_name
         PUBSUB_TOPIC_CHANGE = var.pubsub_topic_change
-        REDIS_HOST          = var.redis_host
-        REDIS_PORT          = tostring(var.redis_port)
       })
+      secret_env = {
+        DATABASE_URL = var.database_url_secret_id
+        REDIS_URL    = var.redis_url_secret_id
+      }
     }
     analysis_worker = {
       name            = "clausync-analysis-${var.environment}"
@@ -152,6 +143,9 @@ locals {
         GCS_BUCKET_NAME     = var.snapshots_bucket_name
         PUBSUB_TOPIC_NOTIFY = var.pubsub_topic_notify
       })
+      secret_env = {
+        DATABASE_URL = var.database_url_secret_id
+      }
     }
     vectorize_worker = {
       name            = "clausync-vectorize-${var.environment}"
@@ -168,12 +162,15 @@ locals {
       env = merge(local.common_env, {
         GCS_BUCKET_NAME = var.uploads_bucket_name
       })
+      secret_env = {
+        DATABASE_URL = var.database_url_secret_id
+      }
     }
     notification_worker = {
       name            = "clausync-notify-${var.environment}"
       image           = "${var.artifact_registry_url}/notification-worker:latest"
       service_account = var.notification_worker_service_account_email
-      memory          = "256Mi"
+      memory          = "512Mi"
       cpu             = "1"
       min_instances   = 0
       max_instances   = 2
@@ -184,6 +181,9 @@ locals {
       env = merge(local.common_env, {
         DASHBOARD_URL = var.environment == "prod" ? "https://app.clausync.ai" : "https://app-${var.environment}.clausync.ai"
       })
+      secret_env = {
+        DATABASE_URL = var.database_url_secret_id
+      }
     }
   }
 }
@@ -206,11 +206,6 @@ resource "google_cloud_run_v2_service" "services" {
     scaling {
       min_instance_count = each.value.min_instances
       max_instance_count = each.value.max_instances
-    }
-
-    vpc_access {
-      connector = var.vpc_connector_id
-      egress    = "PRIVATE_RANGES_ONLY"
     }
 
     timeout = each.value.timeout
@@ -240,10 +235,18 @@ resource "google_cloud_run_v2_service" "services" {
         }
       }
 
-      # Cloud SQL connection
-      volume_mounts {
-        name       = "cloudsql"
-        mount_path = "/cloudsql"
+      # Secrets
+      dynamic "env" {
+        for_each = lookup(each.value, "secret_env", {})
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
       }
 
       # Startup probe
@@ -268,12 +271,7 @@ resource "google_cloud_run_v2_service" "services" {
       }
     }
 
-    volumes {
-      name = "cloudsql"
-      cloud_sql_instance {
-        instances = [var.database_connection_name]
-      }
-    }
+
   }
 
   labels = {
