@@ -21,7 +21,6 @@ export interface Monitor {
   userId: string
   resourceId: string
   displayName: string | null
-  personalizationEnabled: boolean
   createdAt: string
   resource?: {
     id: string
@@ -176,6 +175,77 @@ export interface TopResource {
 export type AnalyticsPeriod = '7d' | '30d' | '90d'
 
 // =============================================================================
+// Document Types (Phase 3)
+// =============================================================================
+
+export interface Document {
+  id: string
+  userId: string
+  filename: string
+  mimeType: string
+  fileSize: number
+  status: 'pending' | 'processing' | 'ready' | 'failed'
+  chunkCount: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UploadDocumentPayload {
+  file: File
+}
+
+// =============================================================================
+// Snapshot Types (Phase 3)
+// =============================================================================
+
+export interface Snapshot {
+  id: string
+  resourceId: string
+  gcsUri: string
+  contentHash: string
+  contentLength: number | null
+  scrapedAt: string
+  createdAt: string
+}
+
+export interface SnapshotContent {
+  downloadUrl: string
+  expiresIn: string
+  contentType: string
+  snapshotId: string
+  scrapedAt: string
+}
+
+// =============================================================================
+// Report Types (Phase 3)
+// =============================================================================
+
+export interface Report {
+  id: string
+  userId: string
+  organizationId: string
+  type: 'risk_summary' | 'change_history' | 'compliance'
+  format: 'pdf' | 'csv'
+  status: 'pending' | 'processing' | 'ready' | 'failed' | 'expired'
+  gcsUri: string | null
+  expiresAt: string | null
+  createdAt: string
+}
+
+export interface GenerateReportPayload {
+  type: 'risk_summary' | 'change_history' | 'compliance'
+  format: 'pdf' | 'csv'
+  period: '7d' | '30d' | '90d'
+  resourceIds?: string[]
+}
+
+export interface ReportDownload {
+  downloadUrl: string
+  expiresIn: string
+  filename: string
+}
+
+// =============================================================================
 // API Response Types
 // =============================================================================
 
@@ -197,3 +267,4 @@ export interface ApiError {
   code?: string
   details?: Record<string, string[]>
 }
+

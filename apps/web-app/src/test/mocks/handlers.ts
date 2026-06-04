@@ -8,7 +8,7 @@ const mockMonitor = {
   userId: 'user-1',
   resourceId: 'resource-1',
   displayName: 'Test Monitor',
-  personalizationEnabled: false,
+
   createdAt: new Date().toISOString(),
   resource: {
     id: 'resource-1',

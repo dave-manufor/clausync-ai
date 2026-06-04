@@ -24,6 +24,7 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { MonitorsListPage } from '@/pages/monitors/MonitorsListPage'
 import { MonitorDetailPage } from '@/pages/monitors/MonitorDetailPage'
 import { AddMonitorPage } from '@/pages/monitors/AddMonitorPage'
+import { SnapshotViewerPage } from '@/pages/monitors/SnapshotViewerPage'
 
 // Changes
 import { ChangesListPage } from '@/pages/changes/ChangesListPage'
@@ -41,11 +42,27 @@ import {
 // Analytics (Phase 2)
 import { AnalyticsPage } from '@/features/analytics'
 
+// Documents (Phase 3)
+import { DocumentsPage } from '@/features/documents/DocumentsPage'
+
+// Reports (Phase 3)
+import { ReportsPage } from '@/features/reports/ReportsPage'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
+      retry: (failureCount, error) => {
+        // Don't retry on client errors (4xx) - these won't resolve with retries
+        if (error instanceof Error && 'response' in error) {
+          const status = (error as { response?: { status?: number } }).response?.status
+          if (status && status >= 400 && status < 500) {
+            return false // No retry on 400, 401, 403, 404, etc.
+          }
+        }
+        // Retry up to 2 times on server errors (5xx) or network errors
+        return failureCount < 2
+      },
     },
   },
 })
@@ -85,6 +102,7 @@ function App() {
               <Route path="/monitors" element={<MonitorsListPage />} />
               <Route path="/monitors/new" element={<AddMonitorPage />} />
               <Route path="/monitors/:id" element={<MonitorDetailPage />} />
+              <Route path="/monitors/:id/snapshots/:sid" element={<SnapshotViewerPage />} />
 
               {/* Changes */}
               <Route path="/changes" element={<ChangesListPage />} />
@@ -92,6 +110,12 @@ function App() {
 
               {/* Analytics */}
               <Route path="/analytics" element={<AnalyticsPage />} />
+
+              {/* Documents (Phase 3) */}
+              <Route path="/documents" element={<DocumentsPage />} />
+
+              {/* Reports (Phase 3) */}
+              <Route path="/reports" element={<ReportsPage />} />
 
               {/* Settings */}
               <Route path="/settings" element={<SettingsLayout />}>

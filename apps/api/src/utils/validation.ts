@@ -26,7 +26,6 @@ export const CreateMonitorSchema = z.object({
   url: z.string().url({ message: 'Invalid URL format' }),
   name: z.string().min(2).max(100).optional(),
   selector: z.string().optional().default('body'),
-  personalization: z.boolean().optional().default(false),
 });
 
 export const PaginationSchema = z.object({

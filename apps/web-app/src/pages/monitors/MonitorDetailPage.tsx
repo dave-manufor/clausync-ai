@@ -10,14 +10,17 @@ import {
   Trash2,
   Loader2,
   FileX,
+  Pause,
+  Play,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useMonitor, useMonitorChanges } from '@/lib/api-hooks'
+import { useMonitor, useMonitorChanges, usePauseMonitor, useResumeMonitor, useSnapshots } from '@/lib/api-hooks'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const severityColors = {
   high: 'bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20',
@@ -109,6 +112,10 @@ export function MonitorDetailPage() {
   
   const { data: monitorResponse, isLoading: monitorLoading, error: monitorError } = useMonitor(id || '')
   const { data: changes, isLoading: changesLoading } = useMonitorChanges(id || '', { limit: 5 })
+  const { data: snapshotsResponse } = useSnapshots(id || '', { limit: 5 })
+  
+  const pauseMonitor = usePauseMonitor()
+  const resumeMonitor = useResumeMonitor()
   
   // Handle loading state
   if (monitorLoading) {
@@ -124,6 +131,29 @@ export function MonitorDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawData = monitorResponse as any
   const monitor = rawData?.data ?? rawData
+  
+  // Pause/Resume state
+  const isPaused = !!monitor?.pausedAt
+  const isPauseLoading = pauseMonitor.isPending || resumeMonitor.isPending
+  
+  const handlePauseToggle = async () => {
+    if (!id) return
+    try {
+      if (isPaused) {
+        await resumeMonitor.mutateAsync(id)
+        toast.success('Monitor resumed')
+      } else {
+        await pauseMonitor.mutateAsync(id)
+        toast.success('Monitor paused')
+      }
+    } catch {
+      toast.error(isPaused ? 'Failed to resume monitor' : 'Failed to pause monitor')
+    }
+  }
+  
+  // Extract snapshots
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snapshots = (snapshotsResponse as any)?.data ?? []
   
   // Derive display values with safe access
   const monitorName = monitor?.displayName || monitor?.resource?.urlNormalized || 'Unnamed Monitor'
@@ -157,9 +187,13 @@ export function MonitorDetailPage() {
             <h1 className="text-2xl font-bold">{monitorName}</h1>
             <Badge
               variant="outline"
-              className="bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20"
+              className={cn(
+                isPaused
+                  ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                  : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+              )}
             >
-              Active
+              {isPaused ? 'Paused' : 'Active'}
             </Badge>
           </div>
           {monitorUrl && (
@@ -175,6 +209,20 @@ export function MonitorDetailPage() {
           )}
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handlePauseToggle}
+            disabled={isPauseLoading}
+          >
+            {isPauseLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : isPaused ? (
+              <Play className="h-4 w-4 mr-2" />
+            ) : (
+              <Pause className="h-4 w-4 mr-2" />
+            )}
+            {isPaused ? 'Resume' : 'Pause'}
+          </Button>
           <Button variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Check Now
@@ -341,6 +389,46 @@ export function MonitorDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Snapshots Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Recent Snapshots</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {snapshots && snapshots.length > 0 ? (
+            <div className="space-y-3">
+              {snapshots.slice(0, 5).map((snapshot: { id: string; scrapedAt: string; contentHash: string }) => (
+                <Link
+                  key={snapshot.id}
+                  to={`/monitors/${id}/snapshots/${snapshot.id}`}
+                  className="block p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-surface-2 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">
+                        Snapshot {formatDate(snapshot.scrapedAt)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Hash: {snapshot.contentHash?.slice(0, 8)}...
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      View
+                    </Badge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No snapshots yet</p>
+              <p className="text-sm">Snapshots will appear after the first check</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

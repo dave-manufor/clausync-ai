@@ -5,7 +5,7 @@ import { Storage } from '@google-cloud/storage';
 
 const router = Router();
 const storage = new Storage();
-const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'clausync-reports';
+const BUCKET_NAME = process.env.REPORTS_BUCKET_NAME || 'clausync-reports';
 const REPORT_EXPIRY_DAYS = 7;
 
 // Report generation request schema
@@ -282,15 +282,26 @@ router.get('/:id/download', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Generate signed URL (15 min expiry)
-    const [signedUrl] = await storage
-      .bucket(BUCKET_NAME)
-      .file(report.fileUrl)
-      .getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 15 * 60 * 1000,
-      });
+    // Generate download URL
+    let downloadUrl: string;
+    
+    if (process.env.STORAGE_EMULATOR_HOST) {
+      // In development with fake-gcs-server, return direct public URL
+      // Use localhost:4443 for browser access (not fake-gcs which is Docker internal)
+      const encodedPath = encodeURIComponent(report.fileUrl);
+      downloadUrl = `http://localhost:4443/storage/v1/b/${BUCKET_NAME}/o/${encodedPath}?alt=media`;
+    } else {
+      // In production, generate signed URL (15 min expiry)
+      const [signedUrl] = await storage
+        .bucket(BUCKET_NAME)
+        .file(report.fileUrl)
+        .getSignedUrl({
+          version: 'v4',
+          action: 'read',
+          expires: Date.now() + 15 * 60 * 1000,
+        });
+      downloadUrl = signedUrl;
+    }
 
     // Audit log
     await prisma.auditLog.create({
@@ -305,7 +316,7 @@ router.get('/:id/download', async (req: Request, res: Response): Promise<void> =
     });
 
     res.status(200).json({
-      downloadUrl: signedUrl,
+      downloadUrl,
       expiresIn: '15 minutes',
       filename: `report-${report.type}-${report.id}.${report.format}`,
     });

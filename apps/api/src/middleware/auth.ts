@@ -36,15 +36,15 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
   if (!authHeader?.startsWith('Bearer ')) {
     // Development fallback: allow requests without auth in dev mode
-    if (process.env.NODE_ENV === 'development' || process.env.PUBSUB_EMULATOR_HOST) {
-      req.user = { 
-        uid: 'dev-user-001', 
-        email: 'dev@localhost',
-        emailVerified: true,
-        signInProvider: 'password',
-      };
-      return next();
-    }
+    // if (process.env.NODE_ENV === 'development' || process.env.PUBSUB_EMULATOR_HOST) {
+    //   req.user = { 
+    //     uid: 'dev-user-001', 
+    //     email: 'dev@localhost',
+    //     emailVerified: true,
+    //     signInProvider: 'password',
+    //   };
+    //   return next();
+    // }
     res.status(401).json({ error: 'Authorization header required' });
     return;
   }

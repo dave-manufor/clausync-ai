@@ -1,0 +1,50 @@
+# =============================================================================
+# Terraform Variables Example
+# =============================================================================
+# Copy this file to terraform.tfvars and customize for your environment
+
+# Required: Your GCP Project ID
+project_id = "your-gcp-project-id"
+
+# Region selection:
+# - us-central1: Lowest cost, good for US-based users
+# - europe-west1: GDPR compliance, EU data residency
+region = "us-central1"
+
+# Environment (dev, staging, prod)
+environment = "dev"
+
+# -----------------------------------------------------------------------------
+# Database Configuration
+# -----------------------------------------------------------------------------
+# Dev: db-f1-micro (~$10-15/month, shared core)
+# Prod: db-custom-1-3840 (~$30-40/month, 1 vCPU, 3.75GB RAM)
+database_tier = "db-f1-micro"
+
+# Enable High Availability (recommended for production)
+enable_ha_database = false
+
+# -----------------------------------------------------------------------------
+# Cache Configuration (Optional for MVP)
+# -----------------------------------------------------------------------------
+# Enable Redis (~$35/month additional cost)
+enable_redis = false
+
+# Redis memory size (if enabled)
+redis_memory_size_gb = 1
+
+# -----------------------------------------------------------------------------
+# Storage Configuration
+# -----------------------------------------------------------------------------
+# WARNING: Bucket lock is IRREVERSIBLE once enabled!
+# Start with false for MVP, enable for production with real customers
+enable_bucket_lock = false
+
+# Retention period in days (7 years = 2557 days for SOC 2 compliance)
+retention_period_days = 2557
+
+# -----------------------------------------------------------------------------
+# Monitoring
+# -----------------------------------------------------------------------------
+# Email for alert notifications (leave empty to skip)
+alert_notification_email = ""

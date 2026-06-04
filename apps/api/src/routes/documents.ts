@@ -19,7 +19,8 @@ const router = Router();
 
 // GCP clients
 const pubsub = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
-const storage = new Storage({ projectId: process.env.GCP_PROJECT_ID });
+// Storage client - automatically uses STORAGE_EMULATOR_HOST env var when set
+const storage = new Storage();
 const bucketName = process.env.GCS_BUCKET_UPLOADS || 'local-uploads';
 
 // Multer config - memory storage with size/type limits

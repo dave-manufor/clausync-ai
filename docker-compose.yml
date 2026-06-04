@@ -42,11 +42,11 @@ services:
 
   fake-gcs:
     image: fsouza/fake-gcs-server
-    command: -scheme http -public-host localhost:4443
+    command: -scheme http -public-host localhost:4443 -external-url http://fake-gcs:4443 -data /storage
     ports:
       - "4443:4443"
     volumes:
-      - gcs_data:/data
+      - gcs_data:/storage
 
   # --- Application Services ---
   api:
@@ -61,6 +61,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - PUBSUB_TOPIC_SCRAPE=cmd.scrape_url
       - IDENTITY_PLATFORM_AUDIENCE=clausync-dev
+      - GCS_BUCKET_NAME=local-snapshots
+      - REPORTS_BUCKET_NAME=clausync-reports
+      - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +75,8 @@ services:
         condition: service_started
       pubsub-init:
         condition: service_completed_successfully
+      fake-gcs:
+        condition: service_started
     develop:
       watch:
         - action: sync+restart
@@ -151,6 +158,8 @@ services:
       - DATABASE_URL=postgresql://clausync:localdev@postgres:5432/clausync_db
       - GCS_BUCKET_NAME=local-uploads
       - STORAGE_EMULATOR_HOST=http://fake-gcs:4443
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
     depends_on:
       postgres:
         condition: service_healthy

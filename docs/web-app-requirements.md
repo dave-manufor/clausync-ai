@@ -740,19 +740,17 @@ Contextual upgrade prompts:
 | Notification preferences | ✅ | `useNotificationPreferences` hooks |
 | Analytics dashboard | ✅ | Real API with `useAnalyticsDashboard` |
 
-### Phase 3 - Monitor Enhancements 🔲
+### Phase 3 - Monitor Enhancements ✅
 
-- [ ] Documents list
-- [ ] Document upload
-- [ ] Snapshot viewer
-- [ ] Data exports
-- [ ] Monitor pause/resume
-- [ ] Snapshot timeline
+- [x] Documents list (`/documents`)
+- [x] Document upload (drag-drop, validation)
+- [x] Snapshot viewer (`/monitors/:id/snapshots/:sid`)
+- [x] Monitor pause/resume toggle
+- [x] Snapshot timeline in MonitorDetailPage
+- [x] Reports page (`/reports`) with generate/download
 
 ### Phase 4 - Analytics & Reporting 🔲
 
-- [ ] Reports list
-- [ ] Generate report modal
 - [ ] Scheduled reports
 - [ ] Risk trends chart (real data)
 

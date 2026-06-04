@@ -88,7 +88,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { url, name, selector, personalization } = parseResult.data;
+    const { url, name, selector } = parseResult.data;
     const normalizedUrl = normalizeUrl(url);
     const userId = req.user!.uid;
 
@@ -159,7 +159,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
           deletedAt: null,
           deletedBy: null,
           displayName: name || null,
-          personalizationEnabled: personalization,
           createdAt: new Date(), // Reset created at to now
         },
       });
@@ -206,7 +205,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         userId: user.id,
         resourceId: resource.id,
         displayName: name || null,
-        personalizationEnabled: personalization,
       },
     });
 
@@ -797,25 +795,39 @@ router.get('/:id/snapshots/:sid/content', async (req: Request, res: Response): P
       return;
     }
 
-    // Generate signed URL for GCS object
     const bucketName = process.env.GCS_BUCKET_NAME || 'local-snapshots';
-    const storage = new Storage();
     
     // Extract file path from gcsUri (format: gs://bucket-name/path/to/file)
     const gcsPath = snapshot.gcsUri.replace(`gs://${bucketName}/`, '');
+    const encodedPath = encodeURIComponent(gcsPath);
     
-    const [signedUrl] = await storage
-      .bucket(bucketName)
-      .file(gcsPath)
-      .getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-      });
+    let downloadUrl: string;
+    let expiresIn: string;
+    
+    // Check if using emulator - return public fake-gcs URL
+    if (process.env.STORAGE_EMULATOR_HOST) {
+      // Use localhost:4443 for browser access (not the internal Docker hostname)
+      const publicHost = 'http://localhost:4443';
+      downloadUrl = `${publicHost}/storage/v1/b/${bucketName}/o/${encodedPath}?alt=media`;
+      expiresIn = 'never'; // Fake GCS URLs don't expire
+    } else {
+      // Production: Generate signed URL for GCS object
+      const storage = new Storage();
+      const [signedUrl] = await storage
+        .bucket(bucketName)
+        .file(gcsPath)
+        .getSignedUrl({
+          version: 'v4',
+          action: 'read',
+          expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+        });
+      downloadUrl = signedUrl;
+      expiresIn = '15 minutes';
+    }
 
     res.status(200).json({
-      downloadUrl: signedUrl,
-      expiresIn: '15 minutes',
+      downloadUrl,
+      expiresIn,
       contentType: 'text/html',
       snapshotId: snapshot.id,
       scrapedAt: snapshot.scrapedAt,

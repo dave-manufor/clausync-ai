@@ -23,11 +23,13 @@ export const metadata: Metadata = {
     title: "ClauSync.ai | AI-Powered Contract Monitoring",
     description: "Stop contract surprises before they cost you. ClauSync monitors vendor terms 24/7 with AI-powered risk analysis.",
     type: "website",
+    images: ["/og-image.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: "ClauSync.ai | AI-Powered Contract Monitoring",
     description: "Stop contract surprises before they cost you. AI-powered contract monitoring.",
+    images: ["/og-image.png"],
   },
 };
 

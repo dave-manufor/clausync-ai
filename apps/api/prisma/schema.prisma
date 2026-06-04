@@ -2,12 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 model Organization {
@@ -96,7 +98,7 @@ model Subscription {
   userId                  String            @map("user_id") @db.Uuid
   resourceId              String            @map("resource_id") @db.Uuid
   displayName             String?           @map("display_name")
-  personalizationEnabled  Boolean           @default(false) @map("personalization_enabled")
+
   pausedAt                DateTime?         @map("paused_at") @db.Timestamptz // When monitoring was paused
   deletedAt               DateTime?         @map("deleted_at") @db.Timestamptz // Soft delete for GDPR
   deletedBy               String?           @map("deleted_by") @db.Uuid  // Who deleted (audit trail)
@@ -148,8 +150,7 @@ model UserContextEmbedding {
   userId         String   @map("user_id") @db.Uuid
   sourceFilename String?  @map("source_filename")
   contentChunk   String   @map("content_chunk")
-  // Note: pgvector type not natively supported by Prisma, use raw SQL for embedding queries
-  // embedding      Unsupported("vector(768)")
+  embedding      Unsupported("vector(768)")?
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -16,6 +16,7 @@ import {
   Minus,
   FileType,
   Lightbulb,
+  User,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -183,6 +184,27 @@ export function ChangeDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Personalized Analysis - "What This Means for You" */}
+          {change.personalizedAnalysis && (
+            <Card className="border-l-4 border-l-accent">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-accent">
+                  <User className="h-5 w-5" />
+                  What This Means for You
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-invert prose-sm max-w-none">
+                  {change.personalizedAnalysis.split('\n\n').map((paragraph, i) => (
+                    <p key={i} className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Red Flags & Positive Indicators for Initial Baseline */}
           {isInitialBaseline && (

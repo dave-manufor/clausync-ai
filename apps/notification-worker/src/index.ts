@@ -6,6 +6,7 @@ import * as React from 'react';
 import { render } from '@react-email/components';
 import { ChangeAlertEmail } from './emails/ChangeAlertEmail';
 import { BillingEmail, BillingNotificationType } from './emails/BillingEmail';
+import { ReportReadyEmail } from './emails/ReportReadyEmail';
 
 dotenv.config();
 
@@ -54,7 +55,18 @@ interface BillingNotificationPayload extends BaseNotificationPayload {
   reason?: string;
 }
 
-type NotificationPayload = ChangeAlertPayload | BillingNotificationPayload;
+// Report ready specific payload
+interface ReportReadyPayload {
+  type: 'report_ready';
+  email: string;
+  subject?: string;
+  body?: string;
+  report_id: string;
+  report_type?: 'risk_summary' | 'change_history' | 'compliance';
+  report_format?: 'pdf' | 'csv';
+}
+
+type NotificationPayload = ChangeAlertPayload | BillingNotificationPayload | ReportReadyPayload;
 
 async function markNotificationSent(notificationId: string): Promise<void> {
   try {
@@ -109,11 +121,53 @@ async function renderChangeAlertEmail(data: ChangeAlertPayload): Promise<string>
   return render(emailComponent as React.ReactElement);
 }
 
+async function renderReportReadyEmail(data: ReportReadyPayload): Promise<string> {
+  const emailComponent = ReportReadyEmail({
+    reportType: data.report_type || 'risk_summary',
+    reportFormat: data.report_format || 'pdf',
+    reportId: data.report_id,
+    dashboardUrl: DASHBOARD_URL,
+  });
+  return render(emailComponent as React.ReactElement);
+}
+
 async function processMessage(message: Message): Promise<void> {
   try {
-    const data: NotificationPayload = JSON.parse(message.data.toString());
+    const rawData = JSON.parse(message.data.toString());
     
-    const isBilling = data.is_billing_notification === true;
+    // Check for report_ready type first (different message structure)
+    if (rawData.type === 'report_ready') {
+      const data = rawData as ReportReadyPayload;
+      console.log('Processing report ready notification:', { 
+        email: data.email,
+        type: 'report_ready',
+        report_id: data.report_id,
+      });
+      
+      const emailHtml = await renderReportReadyEmail(data);
+      
+      const { data: emailResult, error } = await resend.emails.send({
+        from: EMAIL_FROM,
+        to: data.email,
+        subject: data.subject || 'Your Clausync Report is Ready',
+        html: emailHtml,
+      });
+      
+      if (error) {
+        console.error('Failed to send report ready email:', error);
+        message.nack();
+        return;
+      }
+      
+      console.log('Report ready email sent successfully:', emailResult?.id);
+      message.ack();
+      return;
+    }
+    
+    // Handle standard notification types (change_alert, billing)
+    const data: ChangeAlertPayload | BillingNotificationPayload = rawData;
+    const isBilling = (data as BillingNotificationPayload).is_billing_notification === true;
+    
     console.log('Processing notification:', { 
       notification_id: data.notification_id,
       email: data.email,
@@ -122,6 +176,12 @@ async function processMessage(message: Message): Promise<void> {
     });
 
     // Idempotency check - prevent duplicate emails
+    if (!data.notification_id) {
+      console.log('Notification missing notification_id, skipping');
+      message.ack();
+      return;
+    }
+    
     if (await isAlreadySent(data.notification_id)) {
       console.log(`Notification ${data.notification_id} already sent, skipping`);
       message.ack();

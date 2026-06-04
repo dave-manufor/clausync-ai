@@ -146,7 +146,7 @@ async def _get_recent_chunks(user_id: str, limit: int) -> list[str]:
         return []
 
 async def get_subscribers_with_personalization(resource_id: str) -> list[dict]:
-    """Get all users subscribed to a resource with personalization enabled."""
+    """Get all users subscribed to a resource whose tier has RAG enabled."""
     try:
         conn = get_db_connection()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -155,7 +155,12 @@ async def get_subscribers_with_personalization(resource_id: str) -> list[dict]:
                 SELECT u.id as user_id, u.email, s.id as subscription_id
                 FROM subscriptions s
                 JOIN users u ON s.user_id = u.id
-                WHERE s.resource_id = %s AND s.personalization_enabled = TRUE
+                LEFT JOIN organizations org ON u.organization_id = org.id
+                LEFT JOIN organization_subscriptions os ON os.organization_id = org.id
+                LEFT JOIN subscription_tiers st ON os.tier_id = st.id
+                WHERE s.resource_id = %s 
+                  AND s.deleted_at IS NULL
+                  AND (st.features->>'rag_enabled')::boolean = TRUE
                 """,
                 (resource_id,)
             )
@@ -171,6 +176,7 @@ async def get_subscribers_with_personalization(resource_id: str) -> list[dict]:
 async def get_all_subscribers(resource_id: str) -> list[dict]:
     """
     Get all active, non-paused subscribers with their notification preferences.
+    Personalization eligibility is determined by the user's subscription tier (rag_enabled feature).
     
     Returns:
         List of dicts with: user_id, email, subscription_id, personalization_enabled,
@@ -185,16 +191,24 @@ async def get_all_subscribers(resource_id: str) -> list[dict]:
                     u.id as user_id, 
                     u.email, 
                     s.id as subscription_id,
-                    s.personalization_enabled,
                     s.display_name,
                     mr.url_normalized,
                     COALESCE(np.email_enabled, TRUE) as email_enabled,
                     COALESCE(np.risk_threshold, 5) as risk_threshold,
-                    COALESCE(np.digest_frequency, 'instant') as digest_frequency
+                    COALESCE(np.digest_frequency, 'instant') as digest_frequency,
+                    -- Check if user's org subscription tier has RAG enabled
+                    COALESCE(
+                        (st.features->>'rag_enabled')::boolean, 
+                        FALSE
+                    ) as personalization_enabled
                 FROM subscriptions s
                 JOIN users u ON s.user_id = u.id
                 JOIN monitored_resources mr ON s.resource_id = mr.id
                 LEFT JOIN notification_preferences np ON np.user_id = u.id
+                -- Join to get user's organization subscription tier
+                LEFT JOIN organizations org ON u.organization_id = org.id
+                LEFT JOIN organization_subscriptions os ON os.organization_id = org.id
+                LEFT JOIN subscription_tiers st ON os.tier_id = st.id
                 WHERE s.resource_id = %s 
                   AND s.deleted_at IS NULL 
                   AND s.paused_at IS NULL

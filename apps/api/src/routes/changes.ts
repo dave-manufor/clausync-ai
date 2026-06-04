@@ -107,6 +107,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       ...change,
+      personalizedAnalysis: notification?.personalizedSummary || null,
       riskLevel: notification?.riskLevel || null,
       displayName: subscription.displayName,
     });

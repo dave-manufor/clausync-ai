@@ -84,14 +84,15 @@ def fetch_risk_summary_data(conn, user_id: str, period_days: int) -> dict:
         
         org_id = user['organization_id']
         
-        # Get change events with risk scores
+        # Get change events with risk scores and resource names
         cur.execute("""
             SELECT 
                 ce.id,
                 ce.created_at,
                 ce.global_risk_score,
                 mr.url_normalized as url,
-                ce.summary
+                ce.global_ai_summary as summary,
+                COALESCE(s.display_name, mr.url_normalized) as resource_name
             FROM change_events ce
             JOIN monitored_resources mr ON ce.resource_id = mr.id
             JOIN subscriptions s ON mr.id = s.resource_id
@@ -141,8 +142,9 @@ def fetch_change_history_data(conn, user_id: str, period_days: int) -> dict:
                 ce.id,
                 ce.created_at,
                 ce.global_risk_score,
-                ce.summary,
-                mr.url_normalized as url
+                ce.global_ai_summary as summary,
+                mr.url_normalized as url,
+                COALESCE(s.display_name, mr.url_normalized) as resource_name
             FROM change_events ce
             JOIN monitored_resources mr ON ce.resource_id = mr.id
             JOIN subscriptions s ON mr.id = s.resource_id
@@ -204,15 +206,24 @@ def generate_pdf_report(report_type: str, data: dict) -> bytes:
         if high_risk:
             story.append(Paragraph("High Risk Changes", styles['Heading2']))
             for change in high_risk[:10]:  # Limit to 10
+                resource_name = change.get('resource_name') or change.get('url', 'Unknown')
+                url = change.get('url', '')
+                summary = change.get('summary', 'No summary available')
+                
                 story.append(Paragraph(
-                    f"<b>Score: {change.get('global_risk_score', 'N/A')}</b> - {change.get('url', 'Unknown URL')}",
+                    f"<b>Risk Level: {change.get('global_risk_score', 'N/A')}</b> - {resource_name}",
                     styles['Normal']
                 ))
+                if url and url != resource_name:
+                    story.append(Paragraph(
+                        f"<font size='9'>{url}</font>",
+                        styles['Normal']
+                    ))
                 story.append(Paragraph(
-                    f"<i>{(change.get('summary', 'No summary available'))[:200]}...</i>",
+                    f"<i>{summary}</i>",
                     styles['Normal']
                 ))
-                story.append(Spacer(1, 8))
+                story.append(Spacer(1, 12))
     
     elif report_type == "change_history":
         story.append(Paragraph(f"Total Changes: {data.get('total_changes', 0)}", styles['Heading2']))
@@ -242,6 +253,52 @@ def generate_pdf_report(report_type: str, data: dict) -> bytes:
             ]))
             story.append(t)
     
+    elif report_type == "compliance":
+        # Compliance summary - similar to risk_summary but focused on compliance
+        story.append(Paragraph("Compliance Overview", styles['Heading2']))
+        summary_data = [
+            ["Metric", "Value"],
+            ["Documents Monitored", str(data.get('total_changes', 0))],
+            ["Compliance Risk Score", str(data.get('avg_risk_score', 0))],
+            ["High Risk Items", str(data.get('high_risk_count', 0))],
+        ]
+        t = Table(summary_data, colWidths=[3*inch, 2*inch])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 20))
+        
+        # Compliance issues (high risk items)
+        high_risk = [c for c in data.get('changes', []) if (c.get('global_risk_score') or 0) >= 7]
+        if high_risk:
+            story.append(Paragraph("Compliance Issues", styles['Heading2']))
+            for change in high_risk[:10]:
+                resource_name = change.get('resource_name') or change.get('url', 'Unknown')
+                url = change.get('url', '')
+                summary = change.get('summary', 'No description available')
+                
+                story.append(Paragraph(
+                    f"<b>Risk Level: {change.get('global_risk_score', 'N/A')}</b> - {resource_name}",
+                    styles['Normal']
+                ))
+                if url and url != resource_name:
+                    story.append(Paragraph(
+                        f"<font size='9'>{url}</font>",
+                        styles['Normal']
+                    ))
+                story.append(Paragraph(
+                    f"<i>{summary}</i>",
+                    styles['Normal']
+                ))
+                story.append(Spacer(1, 12))
+    
     doc.build(story)
     return buffer.getvalue()
 
@@ -262,14 +319,15 @@ def generate_csv_report(report_type: str, data: dict) -> bytes:
         writer.writerow(["High Risk Changes", data.get('high_risk_count', 0)])
         writer.writerow([])
         writer.writerow(["Change Details"])
-        writer.writerow(["Date", "Risk Score", "URL", "Summary"])
+        writer.writerow(["Date", "Risk Score", "Resource Name", "URL", "Summary"])
         for c in data.get('changes', [])[:100]:
             date_str = c.get('created_at', '').strftime('%Y-%m-%d %H:%M') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
             writer.writerow([
                 date_str,
                 c.get('global_risk_score', 'N/A'),
+                c.get('resource_name') or c.get('url', 'Unknown'),
                 c.get('url', 'Unknown'),
-                (c.get('summary', ''))[:200]
+                c.get('summary', '')
             ])
     
     elif report_type == "change_history":
@@ -278,14 +336,37 @@ def generate_csv_report(report_type: str, data: dict) -> bytes:
         writer.writerow([f"Period: Last {data.get('period_days', 30)} days"])
         writer.writerow([f"Total Changes: {data.get('total_changes', 0)}"])
         writer.writerow([])
-        writer.writerow(["Date", "Risk Score", "URL", "Summary"])
+        writer.writerow(["Date", "Risk Score", "Resource Name", "URL", "Summary"])
         for c in data.get('changes', []):
             date_str = c.get('created_at', '').strftime('%Y-%m-%d %H:%M') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
             writer.writerow([
                 date_str,
                 c.get('global_risk_score', 'N/A'),
+                c.get('resource_name') or c.get('url', 'Unknown'),
                 c.get('url', 'Unknown'),
-                (c.get('summary', ''))[:200]
+                c.get('summary', '')
+            ])
+    
+    elif report_type == "compliance":
+        writer.writerow(["Clausync Compliance Report"])
+        writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"])
+        writer.writerow([f"Period: Last {data.get('period_days', 30)} days"])
+        writer.writerow([])
+        writer.writerow(["Compliance Summary"])
+        writer.writerow(["Documents Monitored", data.get('total_changes', 0)])
+        writer.writerow(["Compliance Risk Score", data.get('avg_risk_score', 0)])
+        writer.writerow(["High Risk Items", data.get('high_risk_count', 0)])
+        writer.writerow([])
+        writer.writerow(["Compliance Details"])
+        writer.writerow(["Date", "Risk Level", "Resource Name", "URL", "Description"])
+        for c in data.get('changes', [])[:100]:
+            date_str = c.get('created_at', '').strftime('%Y-%m-%d %H:%M') if hasattr(c.get('created_at'), 'strftime') else str(c.get('created_at', ''))
+            writer.writerow([
+                date_str,
+                c.get('global_risk_score', 'N/A'),
+                c.get('resource_name') or c.get('url', 'Unknown'),
+                c.get('url', 'Unknown'),
+                c.get('summary', '')
             ])
     
     return buffer.getvalue().encode('utf-8')
@@ -306,7 +387,7 @@ def upload_to_gcs(storage_client, data: bytes, user_id: str, report_id: str, for
     return blob_path
 
 
-def send_notification(publisher, user_email: str, report_id: str):
+def send_notification(publisher, user_email: str, report_id: str, report_type: str, report_format: str):
     """Publish notification for email delivery."""
     topic_path = publisher.topic_path(
         settings.GCP_PROJECT_ID,
@@ -317,8 +398,9 @@ def send_notification(publisher, user_email: str, report_id: str):
         "type": "report_ready",
         "email": user_email,
         "subject": "Your Clausync Report is Ready",
-        "body": f"Your analytics report is ready to download. View it in your dashboard.",
-        "report_id": report_id
+        "report_id": report_id,
+        "report_type": report_type,
+        "report_format": report_format
     }
     
     try:
@@ -379,6 +461,9 @@ def process_report_by_id(report_id: str) -> bool:
             data = fetch_risk_summary_data(conn, user_id, period_days)
         elif report_type == 'change_history':
             data = fetch_change_history_data(conn, user_id, period_days)
+        elif report_type == 'compliance':
+            # Compliance uses same data as risk_summary but with different presentation
+            data = fetch_risk_summary_data(conn, user_id, period_days)
         else:
             data = {"error": f"Unknown report type: {report_type}"}
         
@@ -404,7 +489,7 @@ def process_report_by_id(report_id: str) -> bool:
         conn.commit()
         
         # Send notification
-        send_notification(publisher, user_email, report_id)
+        send_notification(publisher, user_email, report_id, report_type, report_format)
         
         logger.info(f"Report {report_id} completed successfully")
         return True

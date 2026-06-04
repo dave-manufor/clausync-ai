@@ -36,7 +36,7 @@ def store_embeddings(user_id: str, source_filename: str, chunks: list[str], embe
             # Use execute_values for efficient batch insert
             insert_query = """
                 INSERT INTO user_context_embeddings 
-                (user_id, source_filename, content_chunk, embedding)
+                (id, user_id, source_filename, content_chunk, embedding)
                 VALUES %s
             """
             
@@ -44,7 +44,7 @@ def store_embeddings(user_id: str, source_filename: str, chunks: list[str], embe
                 cur, 
                 insert_query, 
                 data,
-                template="(%s, %s, %s, %s::vector)"
+                template="(gen_random_uuid(), %s, %s, %s, %s::vector)"
             )
             
             conn.commit()

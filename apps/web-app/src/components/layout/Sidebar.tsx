@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronsUpDown,
   BarChart3,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,8 @@ const navigation = [
   { name: 'Monitors', href: '/monitors', icon: FileSearch, badge: '24' },
   { name: 'Changes', href: '/changes', icon: Activity, badge: '3' },
   { name: 'Analytics', href: '/analytics', icon: BarChart3, badge: null },
+  { name: 'Reports', href: '/reports', icon: FileText, badge: null },
+  { name: 'Documents', href: '/documents', icon: FileSearch, badge: null },
   { name: 'Settings', href: '/settings', icon: Settings, badge: null },
 ]
 

@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { apiClient } from './api-client'
-import type { ChangeEventDetail, Monitor, ChangeEvent, User, ApiKey, AnalyticsDashboard, ChangeAnalytics } from '@/types'
+import type { ChangeEventDetail, Monitor, ChangeEvent, User, ApiKey, AnalyticsDashboard, ChangeAnalytics, SnapshotContent } from '@/types'
 
 // =============================================================================
 // Query Keys
@@ -70,6 +70,7 @@ export function useMonitors() {
       const { data } = await apiClient.get<{ data: Monitor[]; pagination: unknown }>('/monitors')
       return data.data // Extract array from paginated response
     },
+    placeholderData: keepPreviousData, // Show cached data during refetch
   })
 }
 
@@ -120,6 +121,7 @@ export function useChanges(params?: { limit?: number; severity?: string }) {
       const { data } = await apiClient.get<{ data: ChangeEvent[]; pagination: unknown }>('/changes', { params })
       return data.data // Extract array from paginated response
     },
+    placeholderData: keepPreviousData, // Show cached data during refetch
   })
 }
 
@@ -200,6 +202,7 @@ export function useAnalyticsDashboard(period: '7d' | '30d' | '90d' = '30d') {
       })
       return data
     },
+    placeholderData: keepPreviousData, // Show cached data during refetch
   })
 }
 
@@ -212,6 +215,7 @@ export function useChangeAnalytics(period: '7d' | '30d' | '90d' = '30d') {
       })
       return data
     },
+    placeholderData: keepPreviousData, // Show cached data during refetch
   })
 }
 
@@ -225,6 +229,7 @@ export function useTopResources(period: '7d' | '30d' | '90d' = '30d') {
       )
       return data
     },
+    placeholderData: keepPreviousData, // Show cached data during refetch
   })
 }
 
@@ -262,3 +267,193 @@ export function useUpdateNotificationPreferences() {
   })
 }
 
+// =============================================================================
+// Document Hooks (Phase 3)
+// =============================================================================
+
+import type { Document, Snapshot, Report, GenerateReportPayload, ReportDownload } from '@/types'
+
+export function useDocuments(params?: { page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['documents', params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Document[]; pagination: unknown }>('/documents', { params })
+      return data
+    },
+  })
+}
+
+export function useDocument(id: string) {
+  return useQuery({
+    queryKey: ['documents', id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Document>(`/documents/${id}`)
+      return data
+    },
+    enabled: !!id,
+  })
+}
+
+export function useUploadDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await apiClient.post<{ document: Document }>('/documents', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    },
+  })
+}
+
+export function useDeleteDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/documents/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    },
+  })
+}
+
+// =============================================================================
+// Snapshot Hooks (Phase 3)
+// =============================================================================
+
+export function useSnapshots(monitorId: string, params?: { page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['monitors', monitorId, 'snapshots', params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Snapshot[]; pagination: unknown }>(
+        `/monitors/${monitorId}/snapshots`,
+        { params }
+      )
+      return data
+    },
+    enabled: !!monitorId,
+  })
+}
+
+export function useSnapshot(monitorId: string, snapshotId: string) {
+  return useQuery({
+    queryKey: ['monitors', monitorId, 'snapshots', snapshotId],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Snapshot>(`/monitors/${monitorId}/snapshots/${snapshotId}`)
+      return data
+    },
+    enabled: !!monitorId && !!snapshotId,
+  })
+}
+
+export function useSnapshotContent(monitorId: string, snapshotId: string) {
+  return useQuery({
+    queryKey: ['monitors', monitorId, 'snapshots', snapshotId, 'content'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<SnapshotContent>(`/monitors/${monitorId}/snapshots/${snapshotId}/content`)
+      return data
+    },
+    enabled: !!monitorId && !!snapshotId,
+  })
+}
+
+// =============================================================================
+// Monitor Control Hooks (Phase 3)
+// =============================================================================
+
+export function usePauseMonitor() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.patch<{ data: Monitor }>(`/monitors/${id}/pause`)
+      return data
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.monitors })
+      queryClient.invalidateQueries({ queryKey: queryKeys.monitor(id) })
+    },
+  })
+}
+
+export function useResumeMonitor() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await apiClient.patch<{ data: Monitor }>(`/monitors/${id}/resume`)
+      return data
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.monitors })
+      queryClient.invalidateQueries({ queryKey: queryKeys.monitor(id) })
+    },
+  })
+}
+
+// =============================================================================
+// Report Hooks (Phase 3)
+// =============================================================================
+
+export function useReports(params?: { limit?: number; offset?: number }) {
+  return useQuery({
+    queryKey: ['reports', params],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Report[]; meta: { total: number } }>('/reports', { params })
+      return data
+    },
+    refetchInterval: 5000, // Poll every 5 seconds to update report status
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useReport(id: string) {
+  return useQuery({
+    queryKey: ['reports', id],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Report }>(`/reports/${id}`)
+      return data
+    },
+    enabled: !!id,
+  })
+}
+
+export function useGenerateReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: GenerateReportPayload) => {
+      const { data } = await apiClient.post<{ reportId: string; status: string }>('/reports', payload)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+}
+
+export function useReportDownload(id: string) {
+  return useQuery({
+    queryKey: ['reports', id, 'download'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ReportDownload>(`/reports/${id}/download`)
+      return data
+    },
+    enabled: false, // Only fetch on demand
+  })
+}
+
+export function useDeleteReport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/reports/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+    },
+  })
+}

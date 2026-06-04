@@ -47,7 +47,6 @@ describe('Validation Utils', () => {
       if (result.success) {
         expect(result.data.url).toBe('https://example.com/terms');
         expect(result.data.selector).toBe('body');
-        expect(result.data.personalization).toBe(false);
       }
     });
 
@@ -63,15 +62,6 @@ describe('Validation Utils', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.selector).toBe('#main-content');
-      }
-    });
-
-    it('should accept personalization flag', () => {
-      const input = { url: 'https://example.com', personalization: true };
-      const result = CreateMonitorSchema.safeParse(input);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.personalization).toBe(true);
       }
     });
   });
