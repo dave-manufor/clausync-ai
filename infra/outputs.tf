@@ -11,42 +11,8 @@ output "vpc_network_name" {
   value       = module.network.vpc_network_name
 }
 
-output "vpc_connector_id" {
-  description = "Serverless VPC Connector ID"
-  value       = module.network.vpc_connector_id
-}
 
-# -----------------------------------------------------------------------------
-# Database Outputs
-# -----------------------------------------------------------------------------
-output "database_connection_name" {
-  description = "Cloud SQL connection name (for Cloud SQL Proxy)"
-  value       = module.database.connection_name
-}
 
-output "database_instance_name" {
-  description = "Cloud SQL instance name"
-  value       = module.database.instance_name
-}
-
-output "database_private_ip" {
-  description = "Cloud SQL private IP address"
-  value       = module.database.private_ip_address
-  sensitive   = true
-}
-
-# -----------------------------------------------------------------------------
-# Cache Outputs (if enabled)
-# -----------------------------------------------------------------------------
-output "redis_host" {
-  description = "Redis host (if enabled)"
-  value       = var.enable_redis ? module.cache[0].redis_host : null
-}
-
-output "redis_port" {
-  description = "Redis port (if enabled)"
-  value       = var.enable_redis ? module.cache[0].redis_port : null
-}
 
 # -----------------------------------------------------------------------------
 # Storage Outputs

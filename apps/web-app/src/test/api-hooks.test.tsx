@@ -4,10 +4,10 @@
  * Tests the React Query hooks with MSW mock handlers.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { 
   useMonitors, 
   useMonitor, 

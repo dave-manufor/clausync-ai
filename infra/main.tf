@@ -73,39 +73,7 @@ module "network" {
   depends_on = [google_project_service.required_apis]
 }
 
-# -----------------------------------------------------------------------------
-# Database Module (Cloud SQL PostgreSQL with pgvector)
-# -----------------------------------------------------------------------------
-module "database" {
-  source = "./modules/database"
 
-  project_id            = var.project_id
-  region                = var.region
-  environment           = var.environment
-  vpc_network_id        = module.network.vpc_network_id
-  private_ip_range_name = module.network.private_ip_range_name
-  database_tier         = var.database_tier
-  enable_ha             = var.enable_ha_database
-  deletion_protection   = var.environment == "prod"
-
-  depends_on = [module.network]
-}
-
-# -----------------------------------------------------------------------------
-# Cache Module (Cloud Memorystore Redis) - Optional for MVP
-# -----------------------------------------------------------------------------
-module "cache" {
-  source = "./modules/cache"
-  count  = var.enable_redis ? 1 : 0
-
-  project_id     = var.project_id
-  region         = var.region
-  environment    = var.environment
-  vpc_network_id = module.network.vpc_network_id
-  memory_size_gb = var.redis_memory_size_gb
-
-  depends_on = [module.network]
-}
 
 # -----------------------------------------------------------------------------
 # Storage Module (GCS Buckets with WORM compliance)
@@ -196,9 +164,6 @@ module "cloudrun" {
   region      = var.region
   environment = var.environment
 
-  # Network configuration
-  vpc_connector_id = module.network.vpc_connector_id
-
   # Container registry
   artifact_registry_url = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.containers.repository_id}"
 
@@ -209,26 +174,28 @@ module "cloudrun" {
   vectorize_worker_service_account_email    = module.iam.vectorize_worker_service_account_email
   notification_worker_service_account_email = module.iam.notification_worker_service_account_email
 
-  # Database connection
-  database_connection_name = module.database.connection_name
-
   # Pub/Sub topics
   pubsub_topic_scrape    = module.pubsub.topic_scrape_url_name
   pubsub_topic_change    = module.pubsub.topic_change_detected_name
   pubsub_topic_notify    = module.pubsub.topic_send_notification_name
   pubsub_topic_vectorize = module.pubsub.topic_vectorize_doc_name
 
+  pubsub_topic_scrape_dlq_id    = module.pubsub.topic_scrape_url_dlq_id
+  pubsub_topic_change_dlq_id    = module.pubsub.topic_change_detected_dlq_id
+  pubsub_topic_notify_dlq_id    = module.pubsub.topic_send_notification_dlq_id
+  pubsub_topic_vectorize_dlq_id = module.pubsub.topic_vectorize_doc_dlq_id
+
   # Storage buckets
   snapshots_bucket_name = module.storage.snapshots_bucket_name
   uploads_bucket_name   = module.storage.uploads_bucket_name
 
-  # Redis (optional)
-  redis_host = var.enable_redis ? module.cache[0].redis_host : ""
-  redis_port = var.enable_redis ? module.cache[0].redis_port : 6379
+  # Pass Secret IDs instead of values
+  database_url_secret_id = module.secrets.database_url_secret_id
+  redis_url_secret_id    = module.secrets.redis_url_secret_id
+  brevo_api_key_secret_id = module.secrets.brevo_api_key_secret_id
 
   depends_on = [
     module.network,
-    module.database,
     module.pubsub,
     module.storage,
     module.iam,

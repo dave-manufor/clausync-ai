@@ -62,6 +62,12 @@ locals {
         var.notification_worker_service_account_email,
       ]
     }
+    brevo_api_key = {
+      description = "Brevo API key for sending emails"
+      accessors = [
+        var.notification_worker_service_account_email,
+      ]
+    }
     proxy_host = {
       description = "Bright Data proxy host"
       accessors = [
@@ -109,23 +115,44 @@ resource "google_secret_manager_secret" "main" {
 # -----------------------------------------------------------------------------
 # Grant Access to Service Accounts
 # -----------------------------------------------------------------------------
-resource "google_secret_manager_secret_iam_member" "access" {
-  for_each = {
-    for pair in flatten([
-      for secret_key, secret in local.secret_configs : [
-        for accessor in secret.accessors : {
-          key      = "${secret_key}-${accessor}"
-          secret   = secret_key
-          accessor = accessor
-        }
-      ]
-    ]) : pair.key => pair
-  }
-
+resource "google_secret_manager_secret_iam_member" "api_sa_access" {
+  for_each  = toset(["database_url", "redis_url"])
   project   = var.project_id
-  secret_id = google_secret_manager_secret.main[each.value.secret].secret_id
+  secret_id = google_secret_manager_secret.main[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${each.value.accessor}"
+  member    = "serviceAccount:${var.api_service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ingestion_worker_sa_access" {
+  for_each  = toset(["database_url", "redis_url", "proxy_host", "proxy_user", "proxy_pass"])
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.main[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.ingestion_worker_service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "analysis_worker_sa_access" {
+  for_each  = toset(["database_url"])
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.main[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.analysis_worker_service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "vectorize_worker_sa_access" {
+  for_each  = toset(["database_url"])
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.main[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.vectorize_worker_service_account_email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "notification_worker_sa_access" {
+  for_each  = toset(["database_url", "resend_api_key", "brevo_api_key"])
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.main[each.key].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.notification_worker_service_account_email}"
 }
 
 # -----------------------------------------------------------------------------
@@ -153,4 +180,8 @@ output "proxy_user_secret_id" {
 
 output "proxy_pass_secret_id" {
   value = google_secret_manager_secret.main["proxy_pass"].secret_id
+}
+
+output "brevo_api_key_secret_id" {
+  value = google_secret_manager_secret.main["brevo_api_key"].secret_id
 }

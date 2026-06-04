@@ -20,8 +20,82 @@ const DASHBOARD_URL = process.env.DASHBOARD_URL || 'https://app.clausync.ai';
 
 // Initialize clients
 const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
-const resend = new Resend(RESEND_API_KEY);
 const pool = new Pool({ connectionString: DATABASE_URL });
+
+// Abstract Email Provider
+interface EmailProvider {
+  sendEmail(to: string, subject: string, html: string): Promise<boolean>;
+}
+
+class ResendProvider implements EmailProvider {
+  private resend: Resend;
+  
+  constructor() {
+    this.resend = new Resend(process.env.RESEND_API_KEY || 're_dummy12345678901234567890123456789');
+  }
+
+  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    const { error } = await this.resend.emails.send({
+      from: EMAIL_FROM,
+      to,
+      subject,
+      html,
+    });
+    if (error) {
+      console.error('Resend failed:', error);
+      return false;
+    }
+    return true;
+  }
+}
+
+class BrevoProvider implements EmailProvider {
+  private apiKey: string;
+
+  constructor() {
+    this.apiKey = process.env.BREVO_API_KEY || '';
+  }
+
+  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    if (!this.apiKey) {
+      console.error('Brevo API key is missing');
+      return false;
+    }
+
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': this.apiKey,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: { email: EMAIL_FROM },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Brevo API error:', response.status, errorText);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Brevo network error:', error);
+      return false;
+    }
+  }
+}
+
+// Select Provider
+const emailProvider: EmailProvider = process.env.EMAIL_PROVIDER === 'brevo' 
+  ? new BrevoProvider() 
+  : new ResendProvider();
 
 // Base notification payload shared by all types
 interface BaseNotificationPayload {
@@ -131,10 +205,10 @@ async function renderReportReadyEmail(data: ReportReadyPayload): Promise<string>
   return render(emailComponent as React.ReactElement);
 }
 
-async function processMessage(message: Message): Promise<void> {
+import express, { Request, Response } from 'express';
+
+async function processMessage(rawData: any): Promise<boolean> {
   try {
-    const rawData = JSON.parse(message.data.toString());
-    
     // Check for report_ready type first (different message structure)
     if (rawData.type === 'report_ready') {
       const data = rawData as ReportReadyPayload;
@@ -146,22 +220,19 @@ async function processMessage(message: Message): Promise<void> {
       
       const emailHtml = await renderReportReadyEmail(data);
       
-      const { data: emailResult, error } = await resend.emails.send({
-        from: EMAIL_FROM,
-        to: data.email,
-        subject: data.subject || 'Your Clausync Report is Ready',
-        html: emailHtml,
-      });
+      const success = await emailProvider.sendEmail(
+        data.email,
+        data.subject || 'Your Clausync Report is Ready',
+        emailHtml
+      );
       
-      if (error) {
-        console.error('Failed to send report ready email:', error);
-        message.nack();
-        return;
+      if (!success) {
+        console.error('Failed to send report ready email');
+        return false;
       }
       
-      console.log('Report ready email sent successfully:', emailResult?.id);
-      message.ack();
-      return;
+      console.log('Report ready email sent successfully');
+      return true;
     }
     
     // Handle standard notification types (change_alert, billing)
@@ -178,14 +249,12 @@ async function processMessage(message: Message): Promise<void> {
     // Idempotency check - prevent duplicate emails
     if (!data.notification_id) {
       console.log('Notification missing notification_id, skipping');
-      message.ack();
-      return;
+      return true; // Ack
     }
     
     if (await isAlreadySent(data.notification_id)) {
       console.log(`Notification ${data.notification_id} already sent, skipping`);
-      message.ack();
-      return;
+      return true; // Ack
     }
 
     // Render appropriate email template
@@ -197,60 +266,81 @@ async function processMessage(message: Message): Promise<void> {
     }
 
     // Send email via Resend
-    const { data: emailResult, error } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: data.email,
-      subject: data.subject,
-      html: emailHtml,
-    });
+    const success = await emailProvider.sendEmail(
+      data.email,
+      data.subject,
+      emailHtml
+    );
 
-    if (error) {
-      console.error('Failed to send email:', error);
-      message.nack();
-      return;
+    if (!success) {
+      console.error('Failed to send email');
+      return false; // Nack
     }
 
-    console.log('Email sent successfully:', emailResult?.id);
+    console.log('Email sent successfully');
 
     // Mark notification as sent
     await markNotificationSent(data.notification_id);
 
-    message.ack();
+    return true; // Ack
   } catch (error) {
     console.error('Error processing message:', error);
-    message.nack();
+    return false; // Nack
   }
 }
 
-async function main(): Promise<void> {
-  console.log(`Notification Worker Starting...`);
-  console.log(`Subscription: ${SUBSCRIPTION_ID}`);
-  console.log(`Supports: change_alerts, billing_notifications`);
+const app = express();
+app.use(express.json());
 
-  const subscription = pubsub.subscription(SUBSCRIPTION_ID);
+app.post('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const envelope = req.body;
+    if (!envelope || !envelope.message) {
+      res.status(400).send('Bad Request: Invalid Pub/Sub message format');
+      return;
+    }
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('Received SIGTERM, shutting down...');
-    subscription.close();
-    pool.end();
-    process.exit(0);
-  });
+    const pubsubMessage = envelope.message;
+    if (pubsubMessage.data) {
+      const dataStr = Buffer.from(pubsubMessage.data, 'base64').toString('utf-8');
+      const data = JSON.parse(dataStr);
+      console.log('Received message:', JSON.stringify(data));
+      
+      const success = await processMessage(data);
+      if (success) {
+        res.status(204).send();
+      } else {
+        res.status(500).send('Internal Server Error');
+      }
+    } else {
+      res.status(400).send('Bad Request: No data in message');
+    }
+  } catch (error) {
+    console.error('Error processing Pub/Sub message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
 
-  process.on('SIGINT', () => {
-    console.log('Received SIGINT, shutting down...');
-    subscription.close();
-    pool.end();
-    process.exit(0);
-  });
+app.get('/health', (req: Request, res: Response) => {
+  res.status(200).send('OK');
+});
 
-  subscription.on('message', processMessage);
-  subscription.on('error', (error) => {
-    console.error('Subscription error:', error);
-  });
+const PORT = process.env.PORT || 8080;
+const server = app.listen(PORT, () => {
+  console.log(`Notification Worker listening on port ${PORT}`);
+});
 
-  console.log('Listening for messages...');
-}
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down...');
+  server.close();
+  pool.end();
+  process.exit(0);
+});
 
-main().catch(console.error);
+process.on('SIGINT', () => {
+  console.log('Received SIGINT, shutting down...');
+  server.close();
+  pool.end();
+  process.exit(0);
+});
 

@@ -28,38 +28,6 @@ variable "environment" {
 }
 
 # -----------------------------------------------------------------------------
-# Database Configuration
-# -----------------------------------------------------------------------------
-variable "database_tier" {
-  description = "Cloud SQL machine tier"
-  type        = string
-  default     = "db-f1-micro"
-  # Dev: db-f1-micro (~$10-15/month, shared core)
-  # Prod: db-custom-1-3840 (~$30-40/month, 1 vCPU, 3.75GB RAM)
-}
-
-variable "enable_ha_database" {
-  description = "Enable High Availability for Cloud SQL (production only)"
-  type        = bool
-  default     = false
-}
-
-# -----------------------------------------------------------------------------
-# Cache Configuration (Optional)
-# -----------------------------------------------------------------------------
-variable "enable_redis" {
-  description = "Enable Cloud Memorystore Redis (adds ~$35/month)"
-  type        = bool
-  default     = false
-}
-
-variable "redis_memory_size_gb" {
-  description = "Redis memory size in GB"
-  type        = number
-  default     = 1
-}
-
-# -----------------------------------------------------------------------------
 # Storage Configuration
 # -----------------------------------------------------------------------------
 variable "enable_bucket_lock" {

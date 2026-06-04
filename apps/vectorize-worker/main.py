@@ -94,52 +94,49 @@ def process_vectorize_request(data: dict) -> bool:
         return False  # Nack - DB might be temporarily unavailable
 
 
-def callback(message):
-    """Process document vectorization requests with retry support."""
-    try:
-        logger.info("Received message", extra={
-            "message_id": message.message_id,
-            "data": message.data.decode("utf-8")
-        })
-        data = json.loads(message.data.decode("utf-8"))
-        
-        success = process_vectorize_request(data)
-        
-        if success:
-            message.ack()
-            logger.info("Message processed successfully", extra={"message_id": message.message_id})
-        else:
-            message.nack()
-            logger.warning("Message processing failed, will be retried", 
-                          extra={"message_id": message.message_id})
+import os
+import base64
+from flask import Flask, request
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in message: {e}")
-        message.ack()  # Bad format, retry won't help
-    except Exception as e:
-        logger.exception("Unexpected error processing message")
-        message.nack()  # Unknown error, might be temporary
+app = Flask(__name__)
 
-def main():
-    logger.info(f"Vectorize Worker Starting...", extra={"subscription": subscription_path})
-    streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
+@app.route("/", methods=["POST"])
+def pubsub_push():
+    envelope = request.get_json()
+    if not envelope:
+        msg = "no Pub/Sub message received"
+        logger.error(f"error: {msg}")
+        return f"Bad Request: {msg}", 400
+
+    if not isinstance(envelope, dict) or "message" not in envelope:
+        msg = "invalid Pub/Sub message format"
+        logger.error(f"error: {msg}")
+        return f"Bad Request: {msg}", 400
+
+    pubsub_message = envelope["message"]
     
-    # Graceful Shutdown
-    def shutdown_handler(signum, frame):
-        logger.info("Received termination signal. Shutting down...")
-        streaming_pull_future.cancel()
-        
-    signal.signal(signal.SIGINT, shutdown_handler)
-    signal.signal(signal.SIGTERM, shutdown_handler)
-
-    with subscriber:
+    if isinstance(pubsub_message, dict) and "data" in pubsub_message:
         try:
-            streaming_pull_future.result()
-        except TimeoutError:
-            streaming_pull_future.cancel()
-            streaming_pull_future.result()
+            data = json.loads(base64.b64decode(pubsub_message["data"]).decode("utf-8"))
+            logger.info("Received message", extra={"data": data})
+            success = process_vectorize_request(data)
+            if success:
+                return ("", 204)
+            else:
+                return ("Internal Server Error", 500)  # Nacks the message to trigger retry
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in message: {e}")
+            return ("", 204)  # Ack bad format so it doesn't loop forever
         except Exception as e:
-            pass
+            logger.exception("Unexpected error processing message")
+            return ("Internal Server Error", 500)
+    
+    return ("Bad Request: no data in message", 400)
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    return ("OK", 200)
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

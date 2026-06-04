@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { 
-  FileText, 
   Upload, 
   Trash2, 
   AlertCircle,
@@ -9,7 +8,7 @@ import {
   Search,
   RefreshCw,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
