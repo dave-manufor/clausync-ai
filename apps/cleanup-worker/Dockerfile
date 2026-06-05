@@ -3,11 +3,12 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt .
+COPY apps/cleanup-worker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
-COPY . .
+COPY packages/shared-schemas/schemas /app/schemas
+COPY apps/cleanup-worker/ .
 
 # Run worker
 CMD ["python", "main.py"]

@@ -14,10 +14,10 @@ import {
   X,
   Activity,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { SearchInput } from '@/components/SearchInput'
 import { EmptyState } from '@/components/EmptyState'
 import {
@@ -27,21 +27,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@clausync/ui'
 import { useChanges } from '@/lib/api-hooks'
 import { getRiskLevel, type RiskLevel } from '@/types'
 
 const severityColors = {
-  high: 'bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20',
-  medium: 'bg-[#FDCB6E]/10 text-[#FDCB6E] border-[#FDCB6E]/20',
-  low: 'bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20',
+  high: 'bg-critical/10 text-critical border-critical/20',
+  medium: 'bg-warning/10 text-warning border-warning/20',
+  low: 'bg-safe/10 text-safe border-safe/20',
 }
 
 type SortField = 'resource' | 'risk' | 'date' | null
@@ -269,28 +269,28 @@ export function ChangesListPage() {
             <p className="text-sm text-muted-foreground">Total Changes</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-[#FF4757]/50 transition-colors"
+        <Card className="cursor-pointer hover:border-critical/50 transition-colors"
               onClick={() => setSeverityFilter(severityFilter === 'high' ? 'all' : 'high')}>
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-[#FF4757]">
+            <p className="text-3xl font-bold text-critical">
               {isLoading ? <Skeleton className="h-9 w-8 mx-auto" /> : highRisk}
             </p>
             <p className="text-sm text-muted-foreground">High Risk</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-[#FDCB6E]/50 transition-colors"
+        <Card className="cursor-pointer hover:border-warning/50 transition-colors"
               onClick={() => setSeverityFilter(severityFilter === 'medium' ? 'all' : 'medium')}>
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-[#FDCB6E]">
+            <p className="text-3xl font-bold text-warning">
               {isLoading ? <Skeleton className="h-9 w-8 mx-auto" /> : mediumRisk}
             </p>
             <p className="text-sm text-muted-foreground">Medium Risk</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-[#2ED573]/50 transition-colors"
+        <Card className="cursor-pointer hover:border-safe/50 transition-colors"
               onClick={() => setSeverityFilter(severityFilter === 'low' ? 'all' : 'low')}>
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold text-[#2ED573]">
+            <p className="text-3xl font-bold text-safe">
               {isLoading ? <Skeleton className="h-9 w-8 mx-auto" /> : lowRisk}
             </p>
             <p className="text-sm text-muted-foreground">Low Risk</p>
@@ -376,15 +376,15 @@ export function ChangesListPage() {
                         <span
                           className={`block h-2 w-2 rounded-full ${
                             riskLevel === 'high'
-                              ? 'bg-[#FF4757] animate-pulse'
+                              ? 'bg-critical animate-pulse'
                               : riskLevel === 'medium'
-                              ? 'bg-[#FDCB6E]'
-                              : 'bg-[#2ED573]'
+                              ? 'bg-warning'
+                              : 'bg-safe'
                           }`}
                         />
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium hover:text-[#A17CFF]">
+                        <p className="font-medium hover:text-accent">
                           {change.displayName || change.resource?.urlNormalized || 'Unknown Resource'}
                         </p>
                         <p className="text-sm text-muted-foreground truncate max-w-md">

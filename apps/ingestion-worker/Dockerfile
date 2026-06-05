@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
+COPY apps/ingestion-worker/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -20,7 +20,8 @@ RUN playwright install chromium
 RUN playwright install-deps
 
 # Copy application code
-COPY . .
+COPY packages/shared-schemas/schemas /app/schemas
+COPY apps/ingestion-worker/ .
 
 # Run the worker runs as a background process or main process
 # For Cloud Run, usually we just run the script.

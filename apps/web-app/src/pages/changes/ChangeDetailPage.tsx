@@ -19,11 +19,11 @@ import {
   User,
 } from 'lucide-react'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { useChange } from '@/lib/api-hooks'
 import { getRiskLevel, type DiffJson, type ChangeItem, type KeySection } from '@/types'
 

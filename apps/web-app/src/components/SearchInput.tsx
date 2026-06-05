@@ -5,9 +5,9 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { Search, X, Loader2 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Input } from '@clausync/ui'
+import { Button } from '@clausync/ui'
+import { cn } from '@clausync/ui'
 
 interface SearchInputProps {
   value?: string

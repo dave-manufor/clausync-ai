@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from '@/components/ui/sonner'
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
+import { Toaster } from '@clausync/ui'
+import { toast } from 'sonner'
 import { useThemeStore } from '@/stores/theme-store'
 
 // Layouts
@@ -49,6 +50,22 @@ import { DocumentsPage } from '@/features/documents/DocumentsPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      // Ignore 404s for global toasts to prevent noise
+      const status = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { status?: number } }).response?.status 
+        : null;
+      if (status !== 404) {
+        toast.error(`Error: ${error instanceof Error ? error.message : 'Something went wrong'}`)
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      toast.error(`Action failed: ${error instanceof Error ? error.message : 'Something went wrong'}`)
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes

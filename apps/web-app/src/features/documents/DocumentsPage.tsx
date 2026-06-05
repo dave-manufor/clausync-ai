@@ -8,11 +8,11 @@ import {
   Search,
   RefreshCw,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@clausync/ui'
+import { Button } from '@clausync/ui'
+import { Input } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
+} from '@clausync/ui'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,11 +30,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { FileUpload } from '@/components/ui/file-upload'
+} from '@clausync/ui'
+import { FileUpload } from '@clausync/ui'
 import { useDocuments, useUploadDocument, useDeleteDocument } from '@/lib/api-hooks'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn } from '@clausync/ui'
 import type { Document } from '@/types'
 
 const statusConfig = {

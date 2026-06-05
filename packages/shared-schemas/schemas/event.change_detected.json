@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EventChangeDetected",
+  "type": "object",
+  "properties": {
+    "monitor_id": {
+      "type": "string"
+    },
+    "diff_html": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["monitor_id", "diff_html", "timestamp"],
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CmdScrapeUrl",
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string"
+    },
+    "monitor_id": {
+      "type": "string"
+    }
+  },
+  "required": ["url", "monitor_id"],
+  "additionalProperties": false
+}

@@ -39,7 +39,7 @@ export function HowItWorks() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="text-sm font-medium text-[#A17CFF] uppercase tracking-wider">
+          <span className="text-sm font-medium text-accent uppercase tracking-wider">
             Simple Setup
           </span>
           <h2 className="mt-4 text-3xl md:text-5xl font-bold text-white">
@@ -65,12 +65,12 @@ export function HowItWorks() {
             >
               <div className="card p-8 h-full text-center group">
                 {/* Step Number */}
-                <div className="w-14 h-14 mx-auto mb-6 rounded-full bg-gradient-to-br from-[#5814BA] to-[#A17CFF] flex items-center justify-center text-white font-bold text-xl relative z-10">
+                <div className="w-14 h-14 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xl relative z-10">
                   {step.number}
                 </div>
 
                 {/* Icon */}
-                <div className="text-[#A17CFF] mb-4 flex justify-center group-hover:scale-110 transition-transform">
+                <div className="text-accent mb-4 flex justify-center group-hover:scale-110 transition-transform">
                   {step.icon}
                 </div>
 

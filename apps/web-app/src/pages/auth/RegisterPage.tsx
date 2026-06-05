@@ -4,9 +4,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, Check } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@clausync/ui'
+import { Input } from '@clausync/ui'
+import { Label } from '@clausync/ui'
 import {
   Form,
   FormControl,
@@ -14,7 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@clausync/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 
@@ -210,7 +210,7 @@ export function RegisterPage() {
                       key={i}
                       className={`flex items-center gap-2 text-xs ${
                         req.regex.test(password)
-                          ? 'text-[#2ED573]'
+                          ? 'text-safe'
                           : 'text-muted-foreground'
                       }`}
                     >
@@ -241,11 +241,11 @@ export function RegisterPage() {
                   </FormControl>
                   <Label className="text-sm text-muted-foreground">
                     I agree to the{' '}
-                    <Link to="/terms" className="text-[#A17CFF] hover:underline">
+                    <Link to="/terms" className="text-accent hover:underline">
                       Terms of Service
                     </Link>{' '}
                     and{' '}
-                    <Link to="/privacy" className="text-[#A17CFF] hover:underline">
+                    <Link to="/privacy" className="text-accent hover:underline">
                       Privacy Policy
                     </Link>
                   </Label>
@@ -267,7 +267,7 @@ export function RegisterPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{' '}
-        <Link to="/login" className="text-[#A17CFF] hover:underline">
+        <Link to="/login" className="text-accent hover:underline">
           Sign in
         </Link>
       </p>

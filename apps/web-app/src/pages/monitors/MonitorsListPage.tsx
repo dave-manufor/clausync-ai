@@ -15,8 +15,8 @@ import {
   ChevronRight,
   FileSearch,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
 import { SearchInput } from '@/components/SearchInput'
 import { EmptyState } from '@/components/EmptyState'
 import {
@@ -26,29 +26,29 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@clausync/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+} from '@clausync/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog'
 import { useMonitors, useDeleteMonitor } from '@/lib/api-hooks'
 import { toast } from 'sonner'
 
 const statusColors = {
-  active: 'bg-[#2ED573]/10 text-[#2ED573]',
+  active: 'bg-safe/10 text-safe',
   inactive: 'bg-muted text-muted-foreground',
 }
 
@@ -286,7 +286,7 @@ export function MonitorsListPage() {
                       onClick={() => navigate(`/monitors/${monitor.id}`)}
                     >
                       <TableCell>
-                        <div className="font-medium hover:text-[#A17CFF]">
+                        <div className="font-medium hover:text-accent">
                           {monitor.displayName || getDisplayName(monitor.resource?.urlNormalized || '')}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -300,7 +300,7 @@ export function MonitorsListPage() {
                           className={isActive ? statusColors.active : statusColors.inactive}
                         >
                           <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${
-                            isActive ? 'bg-[#2ED573]' : 'bg-muted-foreground'
+                            isActive ? 'bg-safe' : 'bg-muted-foreground'
                           }`} />
                           {isActive ? 'active' : 'pending'}
                         </Badge>

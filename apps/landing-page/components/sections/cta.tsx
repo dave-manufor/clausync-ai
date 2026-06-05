@@ -16,11 +16,11 @@ export function CTA() {
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.7 }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#5814BA]/30 via-[#5814BA]/10 to-transparent border border-[rgba(161,124,255,0.2)] p-8 md:p-12 text-center"
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-primary/30 via-[#5814BA]/10 to-transparent border border-[rgba(161,124,255,0.2)] p-8 md:p-12 text-center"
         >
           {/* Background Glow */}
           <div 
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-[#5814BA] rounded-full filter blur-[150px] opacity-30" 
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary rounded-full filter blur-[150px] opacity-30" 
             aria-hidden="true" 
           />
 
@@ -29,7 +29,7 @@ export function CTA() {
             initial={{ scale: 0 }}
             animate={isInView ? { scale: 1 } : {}}
             transition={{ duration: 0.5, delay: 0.2, type: "spring" }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(88,20,186,0.3)] border border-[rgba(161,124,255,0.3)] text-sm text-[#A17CFF] mb-6"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(88,20,186,0.3)] border border-[rgba(161,124,255,0.3)] text-sm text-accent mb-6"
           >
             <Rocket className="w-4 h-4" />
             Get Started Today
@@ -62,7 +62,7 @@ export function CTA() {
               placeholder="Enter your work email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(161,124,255,0.2)] text-white placeholder:text-[rgba(255,255,255,0.4)] focus:outline-none focus:border-[#A17CFF] transition-colors"
+              className="flex-1 px-4 py-3 rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(161,124,255,0.2)] text-white placeholder:text-[rgba(255,255,255,0.4)] focus:outline-none focus:border-accent transition-colors"
               required
             />
             <button
@@ -82,11 +82,11 @@ export function CTA() {
             className="flex flex-wrap items-center justify-center gap-6 mt-6 text-sm text-[rgba(255,255,255,0.5)] relative z-10"
           >
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#2ED573]" />
+              <Check className="w-4 h-4 text-safe" />
               Free tier available
             </span>
             <span className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#2ED573]" />
+              <Check className="w-4 h-4 text-safe" />
               No credit card required
             </span>
           </motion.div>

@@ -181,7 +181,7 @@ locals {
       env = merge(local.common_env, {
         DASHBOARD_URL  = var.environment == "prod" ? "https://app.clausync.ai" : "https://app-${var.environment}.clausync.ai"
         EMAIL_PROVIDER = "brevo"
-        EMAIL_FROM     = "hello@clausync-demo.davman.dev"
+        EMAIL_FROM     = "hello@clausync.davman.dev"
       })
       secret_env = {
         DATABASE_URL  = var.database_url_secret_id
@@ -280,6 +280,56 @@ resource "google_cloud_run_v2_service" "services" {
   labels = {
     environment = var.environment
     service     = each.key
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Cloud Run Job for Database Migrations
+# -----------------------------------------------------------------------------
+resource "google_cloud_run_v2_job" "db_migrate" {
+  name     = "clausync-db-migrate-${var.environment}"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    template {
+      service_account = var.api_service_account_email
+
+      containers {
+        image = local.services["api"].image
+
+        command = ["npx", "prisma", "migrate", "deploy"]
+
+        env {
+          name  = "GCP_PROJECT_ID"
+          value = var.project_id
+        }
+        env {
+          name  = "GCP_REGION"
+          value = var.region
+        }
+        env {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        }
+
+        # Secrets
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = var.database_url_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  labels = {
+    environment = var.environment
+    service     = "db-migrate"
   }
 }
 

@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, Camera } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@clausync/ui'
+import { Input } from '@clausync/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@clausync/ui'
+import { Avatar, AvatarFallback, AvatarImage } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import {
   Form,
   FormControl,
@@ -16,14 +16,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@clausync/ui'
 import { toast } from 'sonner'
 import { useCurrentUser, useUpdateProfile } from '@/lib/api-hooks'
 

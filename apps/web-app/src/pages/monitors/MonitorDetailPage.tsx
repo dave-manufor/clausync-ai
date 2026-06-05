@@ -13,19 +13,19 @@ import {
   Pause,
   Play,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Separator } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { useMonitor, useMonitorChanges, usePauseMonitor, useResumeMonitor, useSnapshots } from '@/lib/api-hooks'
-import { cn } from '@/lib/utils'
+import { cn } from '@clausync/ui'
 import { toast } from 'sonner'
 
 const severityColors = {
-  high: 'bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20',
-  medium: 'bg-[#FDCB6E]/10 text-[#FDCB6E] border-[#FDCB6E]/20',
-  low: 'bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20',
+  high: 'bg-critical/10 text-critical border-critical/20',
+  medium: 'bg-warning/10 text-warning border-warning/20',
+  low: 'bg-safe/10 text-safe border-safe/20',
 }
 
 function getRiskLevel(score: number | null | undefined): 'low' | 'medium' | 'high' {
@@ -201,7 +201,7 @@ export function MonitorDetailPage() {
               href={monitorUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-[#A17CFF] inline-flex items-center gap-1 mt-1"
+              className="text-muted-foreground hover:text-accent inline-flex items-center gap-1 mt-1"
             >
               {monitorUrl}
               <ExternalLink className="h-3 w-3" />
@@ -252,8 +252,8 @@ export function MonitorDetailPage() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#A17CFF]/10">
-              <Activity className="h-5 w-5 text-[#A17CFF]" />
+            <div className="p-2 rounded-lg bg-accent/10">
+              <Activity className="h-5 w-5 text-accent" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Changes</p>
@@ -265,15 +265,15 @@ export function MonitorDetailPage() {
           <CardContent className="p-4 flex items-center gap-3">
             <div className={cn(
               "p-2 rounded-lg",
-              riskLevel === 'high' && 'bg-[#FF4757]/10',
-              riskLevel === 'medium' && 'bg-[#FDCB6E]/10',
-              riskLevel === 'low' && 'bg-[#2ED573]/10'
+              riskLevel === 'high' && 'bg-critical/10',
+              riskLevel === 'medium' && 'bg-warning/10',
+              riskLevel === 'low' && 'bg-safe/10'
             )}>
               <AlertTriangle className={cn(
                 "h-5 w-5",
-                riskLevel === 'high' && 'text-[#FF4757]',
-                riskLevel === 'medium' && 'text-[#FDCB6E]',
-                riskLevel === 'low' && 'text-[#2ED573]'
+                riskLevel === 'high' && 'text-critical',
+                riskLevel === 'medium' && 'text-warning',
+                riskLevel === 'low' && 'text-safe'
               )} />
             </div>
             <div>
@@ -284,8 +284,8 @@ export function MonitorDetailPage() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[#2ED573]/10">
-              <RefreshCw className="h-5 w-5 text-[#2ED573]" />
+            <div className="p-2 rounded-lg bg-safe/10">
+              <RefreshCw className="h-5 w-5 text-safe" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Check Frequency</p>
@@ -327,7 +327,7 @@ export function MonitorDetailPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Change History</CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link to={`/changes?monitor=${id}`} className="text-[#A17CFF]">
+              <Link to={`/changes?monitor=${id}`} className="text-accent">
                 View all changes
               </Link>
             </Button>
@@ -347,7 +347,7 @@ export function MonitorDetailPage() {
                     <div key={change.id}>
                       <Link
                         to={`/changes/${change.id}`}
-                        className="block p-4 rounded-lg border border-border hover:border-[#A17CFF]/50 hover:bg-surface-2 transition-colors"
+                        className="block p-4 rounded-lg border border-border hover:border-accent/50 hover:bg-surface-2 transition-colors"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
