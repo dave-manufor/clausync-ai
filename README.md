@@ -76,12 +76,13 @@ The codebase uses **Turborepo** and npm workspaces to perfectly isolate concerns
 ### 2. Event-Driven Microservices
 The backend relies entirely on **Google Cloud Pub/Sub** for asynchronous compute. Heavy tasks are delegated to specific workers:
 - `ingestion-worker`: Headless browser scraping (Playwright) and document parsing.
-- `analysis-worker`: Clause extraction and anomaly detection via Vertex AI.
+- `analysis-worker`: Clause extraction and anomaly detection powered by **Google Gemini Pro via Vertex AI**. Includes robust fallback mechanisms and confidence-scoring to handle unstructured data drift when LLM parsing fails.
 - `vectorize-worker`: Embedding generation for semantic search.
 
 ### 3. Enterprise Compliance & Security
 - **WORM Storage:** Snapshots are stored in GCS buckets configured with `retention_policy` locks to guarantee Write Once, Read Many compliance for legal auditing.
 - **Data Segregation:** The `packages/backend-utils` Prisma extension uses `$allModels` to automatically append `WHERE user_id = :tenant_id` to queries, protecting against accidental data leaks.
+- **Zero-Downtime Migrations:** Database schema migrations are decoupled from the API container startup. A dedicated Terraform-managed **Cloud Run Job** runs `npx prisma migrate deploy` out-of-band to completely eliminate cold-start latency and race conditions during deployments.
 
 ---
 
@@ -91,7 +92,7 @@ The backend relies entirely on **Google Cloud Pub/Sub** for asynchronous compute
 | --- | --- |
 | **Frontend** | React 19, Vite, Next.js, Tailwind CSS v4, React Query, Zustand |
 | **Backend API** | Node.js, Express, Prisma ORM |
-| **Data & AI** | PostgreSQL, `pgvector`, Python, Vertex AI |
+| **Data & AI** | PostgreSQL, `pgvector`, Python, Vertex AI (Gemini Pro) |
 | **Messaging** | Google Cloud Pub/Sub (with Dead Letter Queues) |
 | **Infrastructure** | Docker, Terraform, Google Cloud Run, Secret Manager |
 
@@ -126,6 +127,21 @@ To test the entire distributed pipeline (including Pub/Sub Emulators, Fake-GCS, 
 ```bash
 docker-compose up
 ```
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+Reliability is critical for enterprise software. The repository is configured for rigorous testing across the stack:
+
+```bash
+# Run unit and integration tests (Vitest)
+npx turbo run test
+
+# Run end-to-end browser tests (Playwright)
+npx turbo run test:e2e
+```
+We actively utilize **Mock Service Worker (MSW)** for intercepting network requests in tests to ensure deterministic results without hitting live APIs.
 
 ## License
 MIT
