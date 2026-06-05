@@ -19,6 +19,54 @@ Legal teams spend countless hours manually parsing contracts to find specific cl
 
 This repository is built to scale and enforces strict boundaries suitable for enterprise deployment.
 
+```mermaid
+graph TD
+    subgraph Frontend
+        Web[Web App<br/>React / Vite]
+        Landing[Landing Page<br/>Next.js]
+    end
+
+    subgraph API & Database
+        Gateway[API Gateway<br/>Node.js / Express]
+        DB[(PostgreSQL<br/>with pgvector & RLS)]
+    end
+
+    subgraph Event Bus
+        PubSub{Google Cloud<br/>Pub/Sub}
+    end
+
+    subgraph Async Workers [Python Background Jobs]
+        Ingestion[Ingestion Worker<br/>Playwright Scraping]
+        Analysis[Analysis Worker<br/>Vertex AI Extraction]
+        Vectorize[Vectorize Worker<br/>Embedding Generation]
+        Reports[Reports Worker<br/>PDF Generation]
+        Notifications[Notification Worker<br/>Email & Alerts]
+    end
+
+    subgraph Object Storage
+        GCS[(Cloud Storage<br/>WORM Compliant)]
+    end
+
+    %% Connections
+    Web <-->|REST API| Gateway
+    Landing <-->|REST API| Gateway
+
+    Gateway <-->|CRUD & RLS| DB
+    Gateway -->|Publish Events| PubSub
+
+    PubSub -->|Subscribe| Ingestion
+    PubSub -->|Subscribe| Analysis
+    PubSub -->|Subscribe| Vectorize
+    PubSub -->|Subscribe| Reports
+    PubSub -->|Subscribe| Notifications
+
+    Ingestion -->|Save Raw HTML| GCS
+    Ingestion -->|Update Status| DB
+    Analysis <-->|Read/Write Clauses| DB
+    Vectorize <-->|Update Vectors| DB
+    Reports -->|Store Reports| GCS
+```
+
 ### 1. Strict Monorepo Discipline (Turborepo)
 The codebase uses **Turborepo** and npm workspaces to perfectly isolate concerns:
 - `packages/shared-schemas`: The single source of truth. JSON Schema definitions ensure strict contract definitions across the Node.js API and Python Workers, eliminating "poison pill" messages.
