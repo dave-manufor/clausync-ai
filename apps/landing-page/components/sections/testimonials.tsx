@@ -45,7 +45,7 @@ export function Testimonials() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="text-sm font-medium text-[#A17CFF] uppercase tracking-wider">
+          <span className="text-sm font-medium text-accent uppercase tracking-wider">
             Testimonials
           </span>
           <h2 className="mt-4 text-3xl md:text-5xl font-bold text-white">
@@ -64,7 +64,7 @@ export function Testimonials() {
               className="card p-6 group"
             >
               {/* Quote Icon */}
-              <Quote className="w-8 h-8 text-[#5814BA] mb-4 opacity-50" />
+              <Quote className="w-8 h-8 text-primary mb-4 opacity-50" />
 
               {/* Quote */}
               <p className="text-[rgba(255,255,255,0.8)] leading-relaxed mb-6">
@@ -73,7 +73,7 @@ export function Testimonials() {
 
               {/* Author */}
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#5814BA] to-[#A17CFF] flex items-center justify-center text-white font-semibold text-sm ring-2 ring-[#5814BA]/30 ring-offset-2 ring-offset-[#08041E]">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-semibold text-sm ring-2 ring-primary/30 ring-offset-2 ring-offset-[#08041E]">
                   {testimonial.initials}
                 </div>
                 <div>
@@ -89,7 +89,7 @@ export function Testimonials() {
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    className="w-4 h-4 text-[#A17CFF] fill-[#A17CFF]"
+                    className="w-4 h-4 text-accent fill-accent"
                   />
                 ))}
               </div>

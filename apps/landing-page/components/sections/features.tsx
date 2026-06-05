@@ -58,7 +58,7 @@ export function Features() {
     <section id="features" className="py-24 px-6 relative" ref={ref}>
       {/* Background Aurora */}
       <div 
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#5814BA] rounded-full filter blur-[200px] opacity-10 pointer-events-none" 
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary rounded-full filter blur-[200px] opacity-10 pointer-events-none" 
         aria-hidden="true" 
       />
 
@@ -70,7 +70,7 @@ export function Features() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <span className="text-sm font-medium text-[#A17CFF] uppercase tracking-wider">
+          <span className="text-sm font-medium text-accent uppercase tracking-wider">
             Capabilities
           </span>
           <h2 className="mt-4 text-3xl md:text-5xl font-bold text-white">
@@ -93,7 +93,7 @@ export function Features() {
                 feature.highlight ? "lg:col-span-2 lg:row-span-1" : ""
               }`}
             >
-              <div className="text-[#A17CFF] mb-4 group-hover:scale-110 transition-transform inline-block">
+              <div className="text-accent mb-4 group-hover:scale-110 transition-transform inline-block">
                 {feature.icon}
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">
@@ -118,7 +118,7 @@ export function Features() {
               key={stat.label}
               className="card p-6 text-center"
             >
-              <div className="text-[#A17CFF] mb-2 flex justify-center">
+              <div className="text-accent mb-2 flex justify-center">
                 {stat.icon}
               </div>
               <div className="text-2xl md:text-3xl font-bold text-white">

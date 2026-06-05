@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@clausync/ui'
 
 interface DiffViewerProps {
   before: string

@@ -6,8 +6,8 @@
  */
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@clausync/ui'
+import { cn } from '@clausync/ui'
 
 interface EmptyStateAction {
   label: string

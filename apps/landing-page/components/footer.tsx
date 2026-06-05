@@ -38,11 +38,11 @@ export function Footer() {
           {/* Brand Column */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#5814BA] to-[#A17CFF] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <span className="text-xl font-bold text-white">
-                ClauSync<span className="text-[#A17CFF]">.ai</span>
+                ClauSync<span className="text-accent">.ai</span>
               </span>
             </Link>
             <p className="text-sm text-[rgba(255,255,255,0.5)] mb-6">
@@ -103,7 +103,7 @@ export function Footer() {
           <p className="text-sm text-[rgba(255,255,255,0.4)]">
             © 2025 ClauSync. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-sm text-[#2ED573]">
+          <div className="flex items-center gap-2 text-sm text-safe">
             <CheckCircle2 className="w-4 h-4" />
             All systems operational
           </div>

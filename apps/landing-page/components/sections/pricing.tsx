@@ -71,7 +71,7 @@ export function Pricing() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <span className="text-sm font-medium text-[#A17CFF] uppercase tracking-wider">
+          <span className="text-sm font-medium text-accent uppercase tracking-wider">
             Pricing
           </span>
           <h2 className="mt-4 text-3xl md:text-5xl font-bold text-white">
@@ -92,7 +92,7 @@ export function Pricing() {
           <button
             onClick={() => setIsAnnual(!isAnnual)}
             className={`relative w-14 h-7 rounded-full transition-colors ${
-              isAnnual ? "bg-[#5814BA]" : "bg-[rgba(255,255,255,0.1)]"
+              isAnnual ? "bg-primary" : "bg-[rgba(255,255,255,0.1)]"
             }`}
             aria-label="Toggle billing period"
           >
@@ -103,7 +103,7 @@ export function Pricing() {
             />
           </button>
           <span className={`text-sm ${isAnnual ? "text-white" : "text-[rgba(255,255,255,0.5)]"}`}>
-            Annual <span className="text-[#A17CFF]">(-20%)</span>
+            Annual <span className="text-accent">(-20%)</span>
           </span>
         </motion.div>
 
@@ -117,12 +117,12 @@ export function Pricing() {
               transition={{ duration: 0.5, delay: index * 0.1 + 0.2 }}
               className={`card p-8 relative ${
                 plan.popular
-                  ? "border-[#5814BA] bg-gradient-to-b from-[rgba(88,20,186,0.1)] to-transparent"
+                  ? "border-primary bg-gradient-to-b from-[rgba(88,20,186,0.1)] to-transparent"
                   : ""
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-[#5814BA] to-[#A17CFF] rounded-full text-xs font-medium text-white">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-primary to-accent rounded-full text-xs font-medium text-white">
                   Most Popular
                 </div>
               )}
@@ -144,7 +144,7 @@ export function Pricing() {
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-[#A17CFF] mt-0.5 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
                     <span className="text-sm text-[rgba(255,255,255,0.7)]">{feature}</span>
                   </li>
                 ))}

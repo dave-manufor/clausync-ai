@@ -1,18 +1,18 @@
 import { useEffect } from 'react'
 import { Mail, Loader2, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@clausync/ui'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@clausync/ui'
+import { Switch } from '@clausync/ui'
+import { Label } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+} from '@clausync/ui'
+import { Separator } from '@clausync/ui'
 import { toast } from 'sonner'
 import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/lib/api-hooks'
 import { useState } from 'react'

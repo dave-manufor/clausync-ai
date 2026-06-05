@@ -284,6 +284,56 @@ resource "google_cloud_run_v2_service" "services" {
 }
 
 # -----------------------------------------------------------------------------
+# Cloud Run Job for Database Migrations
+# -----------------------------------------------------------------------------
+resource "google_cloud_run_v2_job" "db_migrate" {
+  name     = "clausync-db-migrate-${var.environment}"
+  location = var.region
+  project  = var.project_id
+
+  template {
+    template {
+      service_account = var.api_service_account_email
+
+      containers {
+        image = local.services["api"].image
+
+        command = ["npx", "prisma", "migrate", "deploy"]
+
+        env {
+          name  = "GCP_PROJECT_ID"
+          value = var.project_id
+        }
+        env {
+          name  = "GCP_REGION"
+          value = var.region
+        }
+        env {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        }
+
+        # Secrets
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = var.database_url_secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  labels = {
+    environment = var.environment
+    service     = "db-migrate"
+  }
+}
+
+# -----------------------------------------------------------------------------
 # IAM - Allow unauthenticated access to API only
 # -----------------------------------------------------------------------------
 resource "google_cloud_run_v2_service_iam_member" "api_public" {

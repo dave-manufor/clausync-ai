@@ -8,10 +8,10 @@ import {
   RefreshCw,
   Plus,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@clausync/ui'
+import { Button } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
+} from '@clausync/ui'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,17 +29,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@clausync/ui'
 import { useReports, useGenerateReport, useDeleteReport } from '@/lib/api-hooks'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn } from '@clausync/ui'
 import type { Report, GenerateReportPayload } from '@/types'
 
 const statusConfig = {

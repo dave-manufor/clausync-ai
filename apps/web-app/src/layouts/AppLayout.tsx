@@ -6,17 +6,17 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@clausync/ui'
+import { Input } from '@clausync/ui'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+} from '@clausync/ui'
+import { Sheet, SheetContent, SheetTrigger } from '@clausync/ui'
+import { Avatar, AvatarFallback } from '@clausync/ui'
 import { Sidebar } from '@/components/layout/Sidebar'
 
 export function AppLayout() {
@@ -83,7 +83,7 @@ export function AppLayout() {
           <div className="flex items-center gap-2 md:gap-4">
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-[#FF4757] rounded-full border-2 border-background" />
+              <span className="absolute top-2 right-2 h-2 w-2 bg-critical rounded-full border-2 border-background" />
             </Button>
 
             <DropdownMenu>
@@ -111,7 +111,7 @@ export function AppLayout() {
                   Billing
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-border/50" />
-                <DropdownMenuItem className="text-[#FF4757] focus:text-[#FF4757] cursor-pointer focus:bg-[#FF4757]/10">
+                <DropdownMenuItem className="text-critical focus:text-critical cursor-pointer focus:bg-critical/10">
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>

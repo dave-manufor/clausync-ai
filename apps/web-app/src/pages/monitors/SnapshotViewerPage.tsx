@@ -1,9 +1,9 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Clock, FileText, AlertCircle, RefreshCw } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Button } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { useSnapshot, useSnapshotContent, useMonitor } from '@/lib/api-hooks'
 
 function formatDate(date: string | Date | null | undefined): string {

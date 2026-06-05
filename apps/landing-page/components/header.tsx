@@ -24,7 +24,7 @@ export function Header() {
       transition={{ duration: 0.6, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "bg-[#08041E]/80 backdrop-blur-md border-b border-[rgba(191,192,255,0.1)]"
+          ? "bg-background/80 backdrop-blur-md border-b border-[rgba(191,192,255,0.1)]"
           : "bg-transparent"
       }`}
     >
@@ -32,11 +32,11 @@ export function Header() {
         <nav className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#5814BA] to-[#A17CFF] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="text-xl font-bold text-white">
-              ClauSync<span className="text-[#A17CFF]">.ai</span>
+              ClauSync<span className="text-accent">.ai</span>
             </span>
           </Link>
 
@@ -110,7 +110,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       className="text-[rgba(255,255,255,0.7)] hover:text-white transition-colors text-sm font-medium relative group"
     >
       {children}
-      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#A17CFF] transition-all duration-300 group-hover:w-full" />
+      <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-accent transition-all duration-300 group-hover:w-full" />
     </Link>
   );
 }

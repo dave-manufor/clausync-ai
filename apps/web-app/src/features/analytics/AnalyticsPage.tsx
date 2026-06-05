@@ -8,15 +8,15 @@ import {
   Calendar,
   AlertCircle,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@clausync/ui'
 import {
   BarChart,
   Bar,
@@ -28,8 +28,8 @@ import {
   Area,
   AreaChart,
 } from 'recharts'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { cn } from '@clausync/ui'
+import { Button } from '@clausync/ui'
 import { useAnalyticsDashboard, useChangeAnalytics, useTopResources } from '@/lib/api-hooks'
 import type { AnalyticsPeriod } from '@/types'
 

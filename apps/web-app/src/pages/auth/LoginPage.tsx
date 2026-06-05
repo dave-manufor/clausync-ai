@@ -4,9 +4,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@clausync/ui'
+import { Input } from '@clausync/ui'
+import { Label } from '@clausync/ui'
 import {
   Form,
   FormControl,
@@ -14,8 +14,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Separator } from '@/components/ui/separator'
+} from '@clausync/ui'
+import { Separator } from '@clausync/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 
@@ -113,7 +113,7 @@ export function LoginPage() {
                   <FormLabel>Password</FormLabel>
                   <Link
                     to="/reset-password"
-                    className="text-sm text-[#A17CFF] hover:underline"
+                    className="text-sm text-accent hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -215,7 +215,7 @@ export function LoginPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Don't have an account?{' '}
-        <Link to="/register" className="text-[#A17CFF] hover:underline">
+        <Link to="/register" className="text-accent hover:underline">
           Sign up
         </Link>
       </p>

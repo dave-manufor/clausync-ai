@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { User, Shield, Key, Bell } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@clausync/ui'
 
 const settingsTabs = [
   { name: 'Profile', href: '/settings', icon: User },

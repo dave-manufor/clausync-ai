@@ -10,17 +10,17 @@ import {
   ArrowDownRight,
   RefreshCw,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from '@clausync/ui'
+import { Button } from '@clausync/ui'
+import { Badge } from '@clausync/ui'
+import { Skeleton } from '@clausync/ui'
 import { useMonitors, useChanges, useAnalyticsDashboard } from '@/lib/api-hooks'
 import { getRiskLevel } from '@/types'
 
 const severityColors = {
-  high: 'bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20',
-  medium: 'bg-[#FDCB6E]/10 text-[#FDCB6E] border-[#FDCB6E]/20',
-  low: 'bg-[#2ED573]/10 text-[#2ED573] border-[#2ED573]/20',
+  high: 'bg-critical/10 text-critical border-critical/20',
+  medium: 'bg-warning/10 text-warning border-warning/20',
+  low: 'bg-safe/10 text-safe border-safe/20',
 }
 
 export function DashboardPage() {
@@ -102,13 +102,13 @@ export function DashboardPage() {
                   )}
                   <div className="flex items-center gap-1 mt-2">
                     {stat.trend === 'up' ? (
-                      <ArrowUpRight className="h-4 w-4 text-[#2ED573]" />
+                      <ArrowUpRight className="h-4 w-4 text-safe" />
                     ) : (
-                      <ArrowDownRight className="h-4 w-4 text-[#FF4757]" />
+                      <ArrowDownRight className="h-4 w-4 text-critical" />
                     )}
                     <span
                       className={`text-sm ${
-                        stat.trend === 'up' ? 'text-[#2ED573]' : 'text-[#FF4757]'
+                        stat.trend === 'up' ? 'text-safe' : 'text-critical'
                       }`}
                     >
                       {stat.change}
@@ -163,7 +163,7 @@ export function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <CardTitle>Recent Changes</CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/changes" className="text-[#A17CFF]">
+              <Link to="/changes" className="text-accent">
                 View all
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Link>
@@ -224,8 +224,8 @@ export function DashboardPage() {
         <Link to="/monitors/new">
           <Card className="card-hover cursor-pointer h-full">
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-[#5814BA]/10">
-                <Plus className="h-6 w-6 text-[#5814BA]" />
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Plus className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <p className="font-medium">Add New Monitor</p>
@@ -239,8 +239,8 @@ export function DashboardPage() {
         <Link to="/changes">
           <Card className="card-hover cursor-pointer h-full">
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-[#A17CFF]/10">
-                <Activity className="h-6 w-6 text-[#A17CFF]" />
+              <div className="p-3 rounded-lg bg-accent/10">
+                <Activity className="h-6 w-6 text-accent" />
               </div>
               <div>
                 <p className="font-medium">View All Changes</p>
@@ -254,8 +254,8 @@ export function DashboardPage() {
         <Link to="/analytics">
           <Card className="card-hover cursor-pointer h-full">
             <CardContent className="p-6 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-[#2ED573]/10">
-                <TrendingUp className="h-6 w-6 text-[#2ED573]" />
+              <div className="p-3 rounded-lg bg-safe/10">
+                <TrendingUp className="h-6 w-6 text-safe" />
               </div>
               <div>
                 <p className="font-medium">View Analytics</p>
