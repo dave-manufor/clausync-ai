@@ -181,7 +181,7 @@ locals {
       env = merge(local.common_env, {
         DASHBOARD_URL  = var.environment == "prod" ? "https://app.clausync.ai" : "https://app-${var.environment}.clausync.ai"
         EMAIL_PROVIDER = "brevo"
-        EMAIL_FROM     = "hello@clausync-demo.davman.dev"
+        EMAIL_FROM     = "hello@clausync.davman.dev"
       })
       secret_env = {
         DATABASE_URL  = var.database_url_secret_id
